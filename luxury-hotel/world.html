@@ -2313,7 +2313,7 @@ function buildStreets(){
     addCircle(tl.x,tl.z,0.25); }
   // benches, bins, hydrants
   const benchAt=(x,z,ry)=>{ const b=group(g,x,0,z,ry); for(let k=0;k<4;k++) box(b,1.8,0.04,0.09,M.walnut,0,0.46,-0.18+k*0.11); for(let k=0;k<3;k++) box(b,1.8,0.09,0.04,M.walnut,0,0.62+k*0.12,-0.26); for(const s of [-0.8,0.8]){ box(b,0.06,0.46,0.5,M.darkMetal,s,0.23,-0.05); box(b,0.06,0.5,0.06,M.darkMetal,s,0.7,-0.27); } };
-  for(const R of ROADS_EW) for(let x=-WR+30;x<WR-20;x+=72){ if(XS.some(v=>Math.abs(x-v)<14)) continue; for(const s of [-1,1]){ const z=R.z+s*(R.w/2+SIDEWALK-0.6); benchAt(x,z,s>0?Math.PI:0); addBox(x-0.95,z-0.35,x+0.95,z+0.35,0.15,1.0);
+  for(const R of ROADS_EW) for(let x=-WR+30;x<WR-20;x+=72){ if(XS.some(v=>Math.abs(x-v)<14)) continue; for(const s of [-1,1]){ const z=R.z+s*(R.w/2+SIDEWALK-0.6); if(VENUES.some(v=>Math.hypot(v.door[0]-x-1.1,v.door[1]-z)<4.2)) continue; benchAt(x,z,s>0?Math.PI:0); addBox(x-0.95,z-0.35,x+0.95,z+0.35,0.15,1.0);
     cylY(g,0.22,0.22,0.9,M.darkMetal,x+2.2,0.15,z,16); addCircle(x+2.2,z,0.25); } }
   for(const R of ROADS_NS) for(let z=-WR+40;z<WR-20;z+=66){ if(ZS.some(v=>Math.abs(z-v)<14)) continue; const s=Math.sign(R.x); const x=R.x+s*(R.w/2+1.4);
     cylY(g,0.14,0.16,0.55,std({color:'#8a1e1a',roughness:0.5}),x,0.15,z,12); add(g,new THREE.SphereGeometry(0.12,10,8),std({color:'#8a1e1a',roughness:0.5}),x,0.72,z); addCircle(x,z,0.2); }
@@ -2533,7 +2533,7 @@ function planVenue(o,type,len,dp,idx){
   const [ax,az]=fp(f,u0,0), [bx,bz]=fp(f,u1,-D);
   const v={type,...VINFO[type],idx,o,f,u0,u1,bw,a0,nb,db,W:u1-u0,D,gh,hc:gh-0.55,style:st,inset:st==='classic'?0.42:0.07,
     rect:{x0:Math.min(ax,bx),z0:Math.min(az,bz),x1:Math.max(ax,bx),z1:Math.max(az,bz)}};
-  v.dc=(db-a0+0.5)*bw; v.dw=Math.min(1.9,bw-2*v.inset-0.2);
+  v.dc=(db-a0+0.5)*bw; v.dw=Math.min(1.9,bw-2*v.inset-0.2); v.door=fp(f,u0+v.dc,0.9);
   o.rooms=[{side:o.frontSide,u0,u1}]; o.venue=v; VENUES.push(v); return v; }
 
 /* sign boards and gallery canvases, drawn once */
@@ -3353,6 +3353,6 @@ setProgress(1); goBtn.disabled=false; goBtn.textContent='进入夜城';
 goBtn.onclick=()=>{ audioInit(); if(AU.ctx) AU.ctx.resume(); started=true; body.classList.add('started'); $('#intro').classList.add('gone'); setTimeout(()=>{ $('#intro').hidden=true; },1300);
   if(!isTouch){ try{ const p=canvasEl.requestPointerLock&&canvasEl.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ dragLook=true; toast('按住鼠标拖动即可环顾四周'); }); }catch(e){ dragLook=true; } }
   toast(isTouch?'左下摇杆行走 · 拖动画面环顾 · 轻点提示互动':'WASD 行走 · 鼠标环顾 · E 互动'); };
-window.__world={ P, S, LIFT, get frames(){ return D.frames||0; }, lowq:()=>{ Q.hi=false; Q.scale=0.6; resize(); }, stats:()=>({meshes:Z.district.children.length, kit:[...KIT].map(([m,a])=>a.length/6), win:WINS.room.length/10, shop:WINS.shop.length/10, col:COL.length, bld:MAP.bldgs.length, venues:VENUES.map(v=>({type:v.type,name:v.name,style:v.style,W:+v.W.toFixed(1),D:+v.D.toFixed(1),spawn:v.spawn,yaw:v.spawnYaw,door:v.door,rect:v.rect,acts:(v.acts||[]).map(q=>[q[0],q[1],q[2],q[4]])})), lights:LIGHTSRC.length, cafe:MAP.cafe}), teleport:(i)=>teleport(GOTO[i]), go:(x,y,z,yaw,pitch)=>{ started=true; $('#intro').hidden=true; Object.assign(P,{x,y,z,yaw,pitch:pitch||0}); }, act:()=>doAct(), get prompt(){ const a=pickAct(); return a?a.label():null; }, hold:on=>{ D.hold=!!on; }, step:(n,dt)=>{ dt=dt||1/30; for(let i=0;i<n;i++){ D.simT=(D.simT||0)+dt; simulate(dt,D.simT); } }, render:()=>{ updateHUD(0); composer.render(); }, get zone(){ return zone; }, key:(k,on)=>{ if(on) keys.add(k); else keys.delete(k); } };
+window.__world={ P, S, LIFT, get frames(){ return D.frames||0; }, lowq:()=>{ Q.hi=false; Q.scale=0.6; resize(); }, stats:()=>({meshes:Z.district.children.length, kit:[...KIT].map(([m,a])=>a.length/6), win:WINS.room.length/10, shop:WINS.shop.length/10, col:COL.length, bld:MAP.bldgs.length, venues:VENUES.map(v=>({type:v.type,name:v.name,style:v.style,W:+v.W.toFixed(1),D:+v.D.toFixed(1),spawn:v.spawn,yaw:v.spawnYaw,door:v.door,rect:v.rect,acts:(v.acts||[]).map(q=>[q[0],q[1],q[2],q[4]])})), lights:LIGHTSRC.length, cafe:MAP.cafe}), teleport:(i)=>teleport(GOTO[i]), go:(x,y,z,yaw,pitch)=>{ started=true; $('#intro').hidden=true; Object.assign(P,{x,y,z,yaw,pitch:pitch||0}); }, act:()=>doAct(), cols:(x,z,rad)=>COL.filter(c=>c.t?Math.hypot(c.x-x,c.z-z)<rad+c.r:(x>c.x0-rad&&x<c.x1+rad&&z>c.z0-rad&&z<c.z1+rad)), get prompt(){ const a=pickAct(); return a?a.label():null; }, hold:on=>{ D.hold=!!on; }, step:(n,dt)=>{ dt=dt||1/30; for(let i=0;i<n;i++){ D.simT=(D.simT||0)+dt; simulate(dt,D.simT); } }, render:()=>{ updateHUD(0); composer.render(); }, get zone(){ return zone; }, key:(k,on)=>{ if(on) keys.add(k); else keys.delete(k); } };
 })();
 </script>
