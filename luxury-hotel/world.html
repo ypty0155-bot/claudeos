@@ -218,7 +218,8 @@ const renderPass = new THREE.RenderPass(scene, camera);
 composer.addPass(renderPass);
 const QUAD_VS=`varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`;
 const DEPTH_GLSL=`
-  uniform sampler2D tDepth; uniform float cNear, cFar; uniform vec2 pInv;
+  precision highp sampler2D;            // default sampler precision is lowp: phones then return half-float depth and AO turns the steps into stripes
+  uniform highp sampler2D tDepth; uniform float cNear, cFar; uniform vec2 pInv;
   float viewZ(vec2 uv){ float d=texture2D(tDepth,uv).x; return (cNear*cFar)/((cFar-cNear)*d-cFar); }
   vec3 viewPos(vec2 uv){ float z=viewZ(uv); return vec3((uv*2.0-1.0)*pInv*(-z), z); }`;
 /* Screen-space ambient occlusion: half resolution, depth-aware blur, multiplied into the HDR image */
@@ -251,14 +252,14 @@ class AOPass extends THREE.Pass {
         }`});
     this.blurMat=new THREE.ShaderMaterial({ depthTest:false, depthWrite:false, uniforms:{...THREE.UniformsUtils.clone(common), tAO:{value:null}, dir:{value:new THREE.Vector2(1,0)}},
       vertexShader:QUAD_VS, fragmentShader:DEPTH_GLSL+`
-        uniform sampler2D tAO; uniform vec2 dir, res; varying vec2 vUv;
+        precision highp sampler2D; uniform sampler2D tAO; uniform vec2 dir, res; varying vec2 vUv;
         void main(){ float z0=viewZ(vUv); float s=0.0, w=0.0;
           for(int i=-4;i<=4;i++){ vec2 uv=vUv+dir*float(i)/res; float dz=abs(viewZ(uv)-z0)/max(0.2,-z0*0.04);
             float k=exp(-float(i*i)*0.12)*exp(-dz*dz); s+=texture2D(tAO,uv).r*k; w+=k; }
           float a=s/w; gl_FragColor=vec4(a,a,a,1.0); }`});
     this.compMat=new THREE.ShaderMaterial({ depthTest:false, depthWrite:false, transparent:true, blending:THREE.CustomBlending, blendEquation:THREE.AddEquation, blendSrc:THREE.ZeroFactor, blendDst:THREE.SrcColorFactor,
       uniforms:{ tAO:{value:null}, tBeauty:{value:null}, strength:{value:1} }, vertexShader:QUAD_VS, fragmentShader:`
-        uniform sampler2D tAO, tBeauty; uniform float strength; varying vec2 vUv;
+        precision highp sampler2D; uniform sampler2D tAO, tBeauty; uniform float strength; varying vec2 vUv;
         void main(){ float ao=texture2D(tAO,vUv).r; vec3 b=texture2D(tBeauty,vUv).rgb; float L=dot(b,vec3(0.2126,0.7152,0.0722));
           float k=strength*(1.0-smoothstep(1.0,4.0,L)); gl_FragColor=vec4(vec3(mix(1.0,ao,k)),1.0); }`});
     this.quad=new THREE.FullScreenQuad(null);
@@ -292,7 +293,7 @@ const FinalShader = {
     focus:{value:10}, aperture:{value:0}, ca:{value:1} },
   vertexShader:QUAD_VS,
   fragmentShader: DEPTH_GLSL+`
-    uniform sampler2D tDiffuse; uniform float exposure, fade, lid, time, grain, vig, focus, aperture, ca; uniform vec2 res; varying vec2 vUv;
+    precision highp sampler2D; uniform sampler2D tDiffuse; uniform float exposure, fade, lid, time, grain, vig, focus, aperture, ca; uniform vec2 res; varying vec2 vUv;
     vec3 RRTAndODTFit(vec3 v){ vec3 a=v*(v+0.0245786)-0.000090537; vec3 b=v*(0.983729*v+0.4329510)+0.238081; return a/b; }
     vec3 aces(vec3 c){
       const mat3 I=mat3(vec3(0.59719,0.07600,0.02840),vec3(0.35458,0.90834,0.13383),vec3(0.04823,0.01566,0.83777));
@@ -950,7 +951,7 @@ function makeReflector(w,h,mode,strength){
   const r=new THREE.Reflector(new THREE.PlaneGeometry(w,h),{clipBias:0.003, textureWidth:512, textureHeight:512, color:0xffffff, shader:{
     uniforms:{ color:{value:null}, tDiffuse:{value:null}, textureMatrix:{value:null}, strength:{value:strength}, mode:{value:mode}, texel:{value:new THREE.Vector2(1/512,1/512)}, nrm:{value:new THREE.Vector3(0,1,0)} },
     vertexShader:`uniform mat4 textureMatrix; varying vec4 vUv; varying vec3 vWP; void main(){ vUv=textureMatrix*vec4(position,1.0); vec4 wp=modelMatrix*vec4(position,1.0); vWP=wp.xyz; gl_Position=projectionMatrix*viewMatrix*wp; }`,
-    fragmentShader:`uniform sampler2D tDiffuse; uniform float strength, mode; uniform vec2 texel; uniform vec3 nrm; varying vec4 vUv; varying vec3 vWP;
+    fragmentShader:`precision highp sampler2D; uniform sampler2D tDiffuse; uniform float strength, mode; uniform vec2 texel; uniform vec3 nrm; varying vec4 vUv; varying vec3 vWP;
       float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
       float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(h12(i),h12(i+vec2(1,0)),f.x),mix(h12(i+vec2(0,1)),h12(i+vec2(1,1)),f.x),f.y); }
       float fbm(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<4;i++){ s+=a*vn(p); p*=2.07; a*=0.5; } return s; }
@@ -3372,6 +3373,6 @@ setProgress(1); goBtn.disabled=false; goBtn.textContent='进入夜城';
 goBtn.onclick=()=>{ audioInit(); if(AU.ctx) AU.ctx.resume(); started=true; body.classList.add('started'); $('#intro').classList.add('gone'); setTimeout(()=>{ $('#intro').hidden=true; },1300);
   if(!isTouch){ try{ const p=canvasEl.requestPointerLock&&canvasEl.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ dragLook=true; toast('按住鼠标拖动即可环顾四周'); }); }catch(e){ dragLook=true; } }
   toast(isTouch?'左下摇杆行走 · 拖动画面环顾 · 轻点提示互动':'WASD 行走 · 鼠标环顾 · E 互动'); };
-window.__world={ P, S, LIFT, get frames(){ return D.frames||0; }, lowq:()=>{ Q.hi=false; Q.scale=0.6; resize(); }, stats:()=>({meshes:Z.district.children.length, kit:[...KIT].map(([m,a])=>a.length/6), win:WINS.room.length/10, shop:WINS.shop.length/10, col:COL.length, bld:MAP.bldgs.length, venues:VENUES.map(v=>({type:v.type,name:v.name,style:v.style,W:+v.W.toFixed(1),D:+v.D.toFixed(1),spawn:v.spawn,yaw:v.spawnYaw,door:v.door,rect:v.rect,acts:(v.acts||[]).map(q=>[q[0],q[1],q[2],q[4]])})), lights:LIGHTSRC.length, cafe:MAP.cafe}), teleport:(i)=>teleport(GOTO[i]), go:(x,y,z,yaw,pitch)=>{ started=true; $('#intro').hidden=true; Object.assign(P,{x,y,z,yaw,pitch:pitch||0}); }, act:()=>doAct(), cols:(x,z,rad)=>COL.filter(c=>c.t?Math.hypot(c.x-x,c.z-z)<rad+c.r:(x>c.x0-rad&&x<c.x1+rad&&z>c.z0-rad&&z<c.z1+rad)), get prompt(){ const a=pickAct(); return a?a.label():null; }, hold:on=>{ D.hold=!!on; }, step:(n,dt)=>{ dt=dt||1/30; for(let i=0;i<n;i++){ D.simT=(D.simT||0)+dt; simulate(dt,D.simT); } }, render:()=>{ updateHUD(0); composer.render(); }, get zone(){ return zone; }, key:(k,on)=>{ if(on) keys.add(k); else keys.delete(k); } };
+window.__world={ P, S, LIFT, get frames(){ return D.frames||0; }, lowq:()=>{ Q.hi=false; Q.scale=0.6; resize(); }, stats:()=>({meshes:Z.district.children.length, kit:[...KIT].map(([m,a])=>a.length/6), win:WINS.room.length/10, shop:WINS.shop.length/10, col:COL.length, bld:MAP.bldgs.length, venues:VENUES.map(v=>({type:v.type,name:v.name,style:v.style,W:+v.W.toFixed(1),D:+v.D.toFixed(1),spawn:v.spawn,yaw:v.spawnYaw,door:v.door,rect:v.rect,acts:(v.acts||[]).map(q=>[q[0],q[1],q[2],q[4]])})), lights:LIGHTSRC.length, cafe:MAP.cafe}), teleport:(i)=>teleport(GOTO[i]), go:(x,y,z,yaw,pitch)=>{ started=true; $('#intro').hidden=true; Object.assign(P,{x,y,z,yaw,pitch:pitch||0}); }, act:()=>doAct(), dbg:{aoPass,renderer,SP,PL,finalPass,Q}, cols:(x,z,rad)=>COL.filter(c=>c.t?Math.hypot(c.x-x,c.z-z)<rad+c.r:(x>c.x0-rad&&x<c.x1+rad&&z>c.z0-rad&&z<c.z1+rad)), get prompt(){ const a=pickAct(); return a?a.label():null; }, hold:on=>{ D.hold=!!on; }, step:(n,dt)=>{ dt=dt||1/30; for(let i=0;i<n;i++){ D.simT=(D.simT||0)+dt; simulate(dt,D.simT); } }, render:()=>{ updateHUD(0); composer.render(); }, get zone(){ return zone; }, key:(k,on)=>{ if(on) keys.add(k); else keys.delete(k); } };
 })();
 </script>
