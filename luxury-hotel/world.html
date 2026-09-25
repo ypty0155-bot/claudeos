@@ -2444,7 +2444,7 @@ function buildCafe(){
   // tables and chairs
   const chair=(x,z,ry)=>{ const c=group(g,x,0,z,ry); cylY(c,0.21,0.21,0.04,std({color:'#3a2418',roughness:0.5}),0,0.46,0,20); for(const [dx,dz] of [[-.15,-.15],[.15,-.15],[-.15,.15],[.15,.15]]) cylY(c,0.012,0.014,0.46,M.darkMetal,dx,0,dz,6);
     add(c,new THREE.TorusGeometry(0.19,0.014,6,20,Math.PI),M.walnut,0,0.82,-0.19,0,0,0); for(const s of [-1,1]) cylY(c,0.013,0.013,0.4,M.walnut,s*0.19,0.46,-0.19,6); };
-  const tables=[[x0+1.6,z0+2.2],[x0+1.6,z0+5.2],[x0+1.6,z0+8.2],[x0+4.6,z0+2.0],[x0+7.6,z0+2.0],[x0+4.8,z0+6.4],[x0+7.8,z0+9.4]];
+  const tables=[[x0+1.6,z0+2.2],[x0+1.6,z0+5.2],[x0+1.6,z0+11.8],[x0+4.6,z0+2.0],[x0+7.6,z0+2.0],[x0+4.8,z0+6.4],[x0+7.8,z0+9.4]];
   for(const [x,z] of tables){ roundTable(g,x,z,0.36,0.74,M.calacattaPanel); chair(x+0.62,z,-Math.PI/2); chair(x-0.62,z,Math.PI/2); addCircle(x,z,0.95);
     add(g,new THREE.CylinderGeometry(0.035,0.03,0.08,12),M.ceramic,x+0.1,0.82,z-0.08); }
   // banquette along the back wall
