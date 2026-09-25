@@ -877,7 +877,7 @@ function wallType(i,side){ if(inMainStraight(i*DS)) return 'concrete'; if((side>
   let a=0,b=0; for(const p of posts){ M.compose(V.set(p[0],p[1],p[2]),Qn.setFromAxisAngle(YA,p[3]),S1); if(p[4]) fm.setMatrixAt(b++,M); else pm.setMatrixAt(a++,M); }
   pm.castShadow=true; instBounds(pm); instBounds(fm); scene.add(pm, fm);
   // tyre walls: stacks of four, top tyre painted in alternating colours
-  const tg=THREE.BufferGeometryUtils.mergeBufferGeometries([new THREE.CylinderGeometry(0.31,0.31,0.22,10,1,true),new THREE.RingGeometry(0.15,0.31,10,1).rotateX(-Math.PI/2).translate(0,0.11,0)]);
+  const tg=THREE.BufferGeometryUtils.mergeBufferGeometries([new THREE.CylinderGeometry(0.31,0.31,0.22,8,1,true),new THREE.RingGeometry(0.15,0.31,8,1).rotateX(-Math.PI/2).translate(0,0.11,0)]);
   const tm=new THREE.InstancedMesh(tg,rubberMat,tyres.length*4);
   const cols=[hex('#1b1b1d'),hex('#1b1b1d'),hex('#1b1b1d')], top=[hex('#d8d6d0'),hex('#b3241a')];
   let n=0; tyres.forEach((p,k)=>{ for(let l=0;l<4;l++){ M.makeTranslation(p[0],p[1]+0.11+l*0.22,p[2]); tm.setMatrixAt(n,M); tm.setColorAt(n,l===3?top[Math.floor(k/3)%2]:cols[l%3]); n++; } });
@@ -1700,7 +1700,7 @@ function speedProfile(mu){      // quasi-steady lap: cornering limit, then forwa
   }
   return v;
 }
-const VPROF=[speedProfile(1.04),speedProfile(1.17),speedProfile(1.27)];
+const VPROF=[speedProfile(0.94),speedProfile(1.12),speedProfile(1.27)];
 function aiControl(car,cars,dt){
   const i=car.seg, v=car.speed, sn=Math.sin(car.yaw), cs=Math.cos(car.yaw);
   const prof=VPROF[car.level];
@@ -1928,7 +1928,7 @@ function audioInit(){
 function audioMute(m){ AU.muted=m; if(AU.ctx) AU.master.gain.setTargetAtTime(m?0:0.85,AU.ctx.currentTime,0.05); }
 const _av=new THREE.Vector3(), _af=new THREE.Vector3(), _au=new THREE.Vector3();
 function audioUpdate(dt,focus,listening){
-  if(!AU.on) return; const ctx=AU.ctx, t=ctx.currentTime;
+  if(!AU.on||!isFinite(focus.rpm)||!isFinite(focus.speed)) return; const ctx=AU.ctx, t=ctx.currentTime;
   const c=focus, sp=c.speed, thr=c.clutch&&c.gear!==0?Math.max(c.in.thr,0.3):c.in.thr;
   const inCar=listening;
   const near=inCar?1:clamp(1-(camera.position.distanceTo(c.vis.root.position)-8)/120,0,1);
@@ -2085,6 +2085,7 @@ function hudUpdate(dt){
     if(e.type==='final') setTimeout(()=>{ if(RACE.state==='race') banner('最后一圈','Final lap',2.2); },2300);
     if(e.type==='finish') onPlayerFinish();
   }
+  if(RACE.state!=='countdown'&&RACE.t>0.9) $('#lights').hidden=true;
   $('#tCur').textContent=r.lapStart!=null&&RACE.state!=='countdown'?fmt(Math.max(0,RACE.t-r.lapStart)):'—';
   $('#tLast').textContent=fmt(r.last);
   $('#tBest').textContent=fmt(RACE.mode==='tt'?RACE.bestTT:r.best);
@@ -2123,14 +2124,22 @@ function readInput(dt){
   const gps=navigator.getGamepads?navigator.getGamepads():[]; const gp=[...gps].find(g=>g&&g.connected);
   if(gp){ const ax=gp.axes[0]||0; if(Math.abs(ax)>0.08){ st=-Math.sign(ax)*Math.pow((Math.abs(ax)-0.08)/0.92,1.4); analog=true; }
     const bt=i=>gp.buttons[i]?gp.buttons[i].value:0; if(bt(7)>0.03) thr=Math.max(thr,bt(7)); if(bt(6)>0.03) brk=Math.max(brk,bt(6)); if(bt(0)>0.5) hb=1;
-    const edge=i=>{ const p=gp.buttons[i]&&gp.buttons[i].pressed, was=PAD.prev[i]; PAD.prev[i]=p; return p&&!was; };
-    if(edge(5)) player.shift(1); if(edge(4)) player.shift(-1); if(edge(3)) setCamMode(CAM.mode+1); if(edge(9)) togglePause(); if(edge(8)) resetPlayer();
     player.pad=analog; }
   const I=player.in;
   I.thr+=(thr-I.thr)*Math.min(1,dt*(thr>I.thr?10:16)); I.brk+=(brk-I.brk)*Math.min(1,dt*(brk>I.brk?14:18)); I.hb=hb;
   if(analog) I.steer+=(st-I.steer)*Math.min(1,dt*18);
   else { const rate=(st===0||Math.sign(st)!==Math.sign(I.steer))?5.5:2.8; I.steer+=clamp(st-I.steer,-rate*dt,rate*dt); }
   if(RACE.mode==='tt'&&player.offTrack===4&&player.r.lapStart!=null) player.r.invalid=true;
+}
+function pollPad(){             // button presses, every frame (also while paused, so Start can resume)
+  const gps=navigator.getGamepads?navigator.getGamepads():[]; const gp=[...gps].find(g=>g&&g.connected); if(!gp) return;
+  const edge=i=>{ const p=!!(gp.buttons[i]&&gp.buttons[i].pressed), was=PAD.prev[i]; PAD.prev[i]=p; return p&&!was; };
+  const e={}; for(const i of [0,3,4,5,8,9]) e[i]=edge(i);
+  if(!STARTED){ if(e[0]&&!goBtn.disabled&&!$('#menu').hidden) startSession(); return; }
+  if(e[9]) togglePause();
+  if(paused){ if(e[0]) togglePause(false); return; }
+  if(!ASSIST.auto&&!player.ai){ if(e[5]) player.shift(1); if(e[4]) player.shift(-1); }
+  if(e[3]) setCamMode(CAM.mode+1); if(e[8]) resetPlayer();
 }
 function resetPlayer(){ if(RACE.state!=='race'&&RACE.state!=='finished') return; if(player.ai) return; player.reset(player.s,RL[player.seg]*0.5,0); player.r.cp=0; if(RACE.mode==='tt') player.r.invalid=true; banner('回到赛道','',1.2); }
 let paused=false;
@@ -2154,6 +2163,10 @@ addEventListener('keydown',e=>{
 });
 addEventListener('keyup',e=>KEYS.delete(e.code));
 addEventListener('blur',()=>{ KEYS.clear(); for(const k in TOUCH) TOUCH[k]=0; });
+document.addEventListener('visibilitychange',()=>{          // leaving the tab pauses the race and silences the engine
+  if(document.hidden){ if(STARTED&&!paused&&!D.hold) togglePause(true); if(AU.ctx&&AU.ctx.state==='running') AU.ctx.suspend(); }
+  else if(AU.ctx&&AU.ctx.state==='suspended') AU.ctx.resume();
+});
 const COARSE=matchMedia('(pointer: coarse)').matches;
 for(const [id,k] of [['#tL','l'],['#tR','r'],['#tGas','g'],['#tBrk','b']]){ const el=$(id);
   el.addEventListener('pointerdown',e=>{ e.preventDefault(); el.setPointerCapture(e.pointerId); TOUCH[k]=1; el.classList.add('on'); audioInit(); });
@@ -2232,7 +2245,6 @@ function lightsUpdate(){
 function go(){
   RACE.state='race'; RACE.t=0; cars.forEach(c=>{ c.held=false; });
   $$('#lights .lamp').forEach(l=>l.classList.remove('on')); START_LAMPS.forEach(m=>m.emissiveIntensity=0);
-  setTimeout(()=>{ $('#lights').hidden=true; },900);
   if(AU.on) AU.tone(880,0.5,0.25);
   banner('GO','',1.0);
 }
@@ -2332,6 +2344,7 @@ function frame(now){
   requestAnimationFrame(frame);
   let dt=Math.min(0.05,(now-last)/1000); last=now;
   if(D.hold) return;                                        // test hooks drive simulation and rendering explicitly
+  pollPad();
   if(!paused){ if(STARTED) readInput(dt); acc+=dt; let n=0; while(acc>=PDT&&n<30){ physStep(); acc-=PDT; n++; } if(n>=30) acc=0; }
   visuals(paused?0:dt);
   render();
