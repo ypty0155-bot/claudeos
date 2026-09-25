@@ -2348,22 +2348,41 @@ function mergeGeos(parts){ let n=0; const gs=parts.map(([g,m])=>{ const c=(g.ind
   const P=new Float32Array(n*3), N=new Float32Array(n*3), U=new Float32Array(n*2); let o=0;
   for(const c of gs){ P.set(c.attributes.position.array,o*3); N.set(c.attributes.normal.array,o*3); if(c.attributes.uv) U.set(c.attributes.uv.array,o*2); o+=c.attributes.position.count; }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(P,3)); g.setAttribute('normal',new THREE.BufferAttribute(N,3)); g.setAttribute('uv',new THREE.BufferAttribute(U,2)); g.computeBoundingSphere(); return g; }
+const sstep=(a,b,x)=>{ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); };
+function smoothNormals(g,deg){ // non-indexed geometry: average face normals of coincident vertices below a crease angle
+  const p=g.attributes.position, n=p.count, lim=Math.cos(deg*Math.PI/180), fn=new Float32Array(n*3), A=new THREE.Vector3(), B=new THREE.Vector3(), C=new THREE.Vector3();
+  for(let t=0;t<n;t+=3){ A.fromBufferAttribute(p,t); B.fromBufferAttribute(p,t+1).sub(A); C.fromBufferAttribute(p,t+2).sub(A); B.cross(C); for(let k=0;k<3;k++) fn.set([B.x,B.y,B.z],(t+k)*3); }
+  const groups=new Map(); for(let i=0;i<n;i++){ const key=Math.round(p.getX(i)*1e4)+'|'+Math.round(p.getY(i)*1e4)+'|'+Math.round(p.getZ(i)*1e4); let l=groups.get(key); if(!l) groups.set(key,l=[]); l.push(i); }
+  const out=new Float32Array(n*3), a=new THREE.Vector3(), b=new THREE.Vector3(), sum=new THREE.Vector3();
+  for(const l of groups.values()) for(const i of l){ a.fromArray(fn,i*3); const al=a.length(); if(al>0) a.divideScalar(al); sum.set(0,0,0);
+    for(const j of l){ b.fromArray(fn,j*3); const bl=b.length(); if(bl===0) continue; if(a.dot(b)/bl>=lim) sum.add(b); }
+    if(sum.lengthSq()===0) sum.copy(a); sum.normalize(); out.set([sum.x,sum.y,sum.z],i*3); }
+  g.setAttribute('normal',new THREE.BufferAttribute(out,3)); return g; }
+function taperZ(g,endK,topK,y0,y1){ const p=g.attributes.position; for(let i=0;i<p.count;i++){ const x=p.getX(i), y=p.getY(i), e=sstep(1.35,2.45,x>0?x:-x*1.04); p.setZ(i,p.getZ(i)*(1-endK*e*e-topK*sstep(y0,y1,y))); } return g; }
 function carGeos(){
   const s=new THREE.Shape(); s.moveTo(-2.3,0.3); s.lineTo(2.2,0.3); s.quadraticCurveTo(2.36,0.32,2.38,0.52); s.lineTo(2.36,0.78); s.quadraticCurveTo(2.28,0.92,1.9,0.94); s.lineTo(-1.7,0.97); s.quadraticCurveTo(-2.22,0.95,-2.3,0.8); s.closePath();
-  const body=new THREE.ExtrudeGeometry(s,{depth:1.66, bevelEnabled:true, bevelThickness:0.07, bevelSize:0.07, bevelSegments:2, curveSegments:8}); body.translate(0,0,-0.83);
+  const body=new THREE.ExtrudeGeometry(s,{depth:1.66, bevelEnabled:true, bevelThickness:0.08, bevelSize:0.07, bevelSegments:3, curveSegments:8}); body.translate(0,0,-0.83); taperZ(body,0.16,0.07,0.62,0.98); smoothNormals(body,50);
   const gh=new THREE.Shape(); gh.moveTo(-1.55,0.95); gh.lineTo(0.62,0.95); gh.quadraticCurveTo(0.2,1.38,-0.2,1.4); gh.lineTo(-1.1,1.4); gh.quadraticCurveTo(-1.42,1.37,-1.55,0.95);
-  const glass=new THREE.ExtrudeGeometry(gh,{depth:1.4, bevelEnabled:true, bevelThickness:0.05, bevelSize:0.05, bevelSegments:2, curveSegments:8}); glass.translate(0,0,-0.7);
+  const glass=new THREE.ExtrudeGeometry(gh,{depth:1.4, bevelEnabled:true, bevelThickness:0.05, bevelSize:0.05, bevelSegments:2, curveSegments:8}); glass.translate(0,0,-0.7); taperZ(glass,0,0.17,0.95,1.42); smoothNormals(glass,50);
   const I=new THREE.Matrix4(); const wheels=[];
-  for(const [wx,wz] of [[1.45,0.84],[1.45,-0.84],[-1.5,0.84],[-1.5,-0.84]]){ const w=new THREE.CylinderGeometry(0.34,0.34,0.24,20); w.rotateX(Math.PI/2); wheels.push([w,new THREE.Matrix4().makeTranslation(wx,0.34,wz)]); const rim=new THREE.CylinderGeometry(0.22,0.22,0.25,16); rim.rotateX(Math.PI/2); wheels.push([rim,new THREE.Matrix4().makeTranslation(wx,0.34,wz*1.01)]); }
-  const head=mergeGeos([[new THREE.BoxGeometry(0.05,0.08,0.34),new THREE.Matrix4().makeTranslation(2.38,0.72,0.6)],[new THREE.BoxGeometry(0.05,0.08,0.34),new THREE.Matrix4().makeTranslation(2.38,0.72,-0.6)]]);
-  const tail=mergeGeos([[new THREE.BoxGeometry(0.05,0.1,0.34),new THREE.Matrix4().makeTranslation(-2.33,0.74,0.6)],[new THREE.BoxGeometry(0.05,0.1,0.34),new THREE.Matrix4().makeTranslation(-2.33,0.74,-0.6)]]);
-  return { body:mergeGeos([[body,I],[new THREE.BoxGeometry(1.2,0.04,1.34),new THREE.Matrix4().makeTranslation(-0.65,1.43,0)]]), glass, wheel:mergeGeos(wheels), head, tail };
+  for(const [wx,wz] of [[1.45,0.84],[1.45,-0.84],[-1.5,0.84],[-1.5,-0.84]]){ const w=new THREE.CylinderGeometry(0.34,0.34,0.24,20); w.rotateX(Math.PI/2); wheels.push([w,new THREE.Matrix4().makeTranslation(wx,0.34,wz)]); }
+  const head=mergeGeos([[new THREE.BoxGeometry(0.03,0.08,0.32),new THREE.Matrix4().makeTranslation(2.465,0.72,0.56)],[new THREE.BoxGeometry(0.03,0.08,0.32),new THREE.Matrix4().makeTranslation(2.465,0.72,-0.56)]]);
+  const tail=mergeGeos([[new THREE.BoxGeometry(0.03,0.1,0.32),new THREE.Matrix4().makeTranslation(-2.395,0.74,0.56)],[new THREE.BoxGeometry(0.03,0.1,0.32),new THREE.Matrix4().makeTranslation(-2.395,0.74,-0.56)]]);
+  const T3=(x,y,z,ry=0)=>new THREE.Matrix4().makeRotationY(ry).setPosition(x,y,z), bx=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
+  const dark=[[bx(0.05,0.17,0.78),T3(2.44,0.57,0)],[bx(0.14,0.11,1.52),T3(2.36,0.35,0)],[bx(0.14,0.13,1.56),T3(-2.34,0.4,0)],[bx(0.05,0.11,0.42),T3(-2.4,0.56,0)]];
+  const chrome=[[bx(0.05,0.12,0.4),T3(2.43,0.72,0.56)],[bx(0.05,0.12,0.4),T3(2.43,0.72,-0.56)],[bx(0.04,0.13,0.4),T3(-2.37,0.74,0.56)],[bx(0.04,0.13,0.4),T3(-2.37,0.74,-0.56)],[bx(0.02,0.015,0.8),T3(2.47,0.66,0)],[bx(0.02,0.015,0.8),T3(2.47,0.5,0)]];
+  for(const sd of [-1,1]){ dark.push([bx(0.16,0.09,0.13),T3(0.58,1.02,sd*0.93)],[bx(2.7,0.07,0.03),T3(-0.05,0.37,sd*0.905)]);
+    chrome.push([bx(2.15,0.02,0.02),T3(-0.47,1.035,sd*0.765)],[bx(0.14,0.025,0.03),T3(0.25,0.8,sd*0.905)],[bx(0.14,0.025,0.03),T3(-0.85,0.8,sd*0.905)]);
+    for(const wx of [1.45,-1.5]){ const arch=new THREE.RingGeometry(0.35,0.43,20,1,0,Math.PI); dark.push([arch,T3(wx,0.34,sd*0.915,sd>0?0:Math.PI)]);
+      const rim=new THREE.CylinderGeometry(0.21,0.21,0.02,18); rim.rotateX(Math.PI/2); chrome.push([rim,T3(wx,0.34,sd*0.965)]); const hub=new THREE.CylinderGeometry(0.06,0.06,0.03,10); hub.rotateX(Math.PI/2); dark.push([hub,T3(wx,0.34,sd*0.975)]); } }
+  return { body:mergeGeos([[body,I],[bx(1.12,0.04,1.2),T3(-0.65,1.43,0)]]), glass, wheel:mergeGeos(wheels), head, tail, dark:mergeGeos(dark), chrome:mergeGeos(chrome) };
 }
 const CARS={parked:[],moving:[]};
 function buildCars(){
   const G=carGeos(), r=mulberry32(515);
   const paint=phys({color:'#ffffff', metalness:0.15, roughness:0.38, clearcoat:1, clearcoatRoughness:0.03, envMapIntensity:0.6});
   const glassM=std({color:'#060709', metalness:0.9, roughness:0.05, envMapIntensity:1.2}), wheelM=std({color:'#141414', roughness:0.7, metalness:0.3});
+  const trimM=std({color:'#0b0b0c', roughness:0.5, metalness:0.2}), chromeM=std({color:'#e4e4e6', metalness:1, roughness:0.16, envMapIntensity:1.1}); trimM.side=THREE.DoubleSide;
   const headM=basic({color:lin(7,7,6.4)}), tailM=basic({color:lin(3.2,0.15,0.1)}), offM=basic({color:lin(0.25,0.03,0.02)});
   const cols=['#101012','#e8e6e1','#2a2d33','#5a0f16','#1a2a44','#8c8f94','#0f2a22','#bfb6a3'];
   // parked along the curbs of the side streets
@@ -2372,9 +2391,9 @@ function buildCars(){
   for(const R of ROADS_NS) for(const s of [-1,1]) for(let z=-WR+12;z<WR-8;z+=6.2){ if(ROADS_EW.some(e=>Math.abs(z-e.z)<24)||r()<0.45) continue; spots.push([R.x+s*(R.w/2-1.3),z,s>0?-Math.PI/2:Math.PI/2]); }
   const N=spots.length, NM=26, tot=N+NM;
   const mk=(g,m,c)=>{ const im=new THREE.InstancedMesh(g,m,tot); im.frustumCulled=false; im.castShadow=m!==headM&&m!==tailM; im.receiveShadow=true; Z.district.add(im); return im; };
-  const IB=mk(G.body,paint), IG=mk(G.glass,glassM), IW=mk(G.wheel,wheelM), IH=mk(G.head,headM), IT=mk(G.tail,tailM);
+  const IB=mk(G.body,paint), IG=mk(G.glass,glassM), IW=mk(G.wheel,wheelM), IH=mk(G.head,headM), IT=mk(G.tail,tailM), IX=mk(G.dark,trimM), IC=mk(G.chrome,chromeM);
   const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), e=new THREE.Euler(), v=new THREE.Vector3(), one=new THREE.Vector3(1,1,1), c=new THREE.Color();
-  spots.forEach(([x,z,ry],i)=>{ m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const im of [IB,IG,IW,IH,IT]) im.setMatrixAt(i,m4); IB.setColorAt(i,c.set(cols[(r()*cols.length)|0]));
+  spots.forEach(([x,z,ry],i)=>{ m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const im of [IB,IG,IW,IH,IT,IX,IC]) im.setMatrixAt(i,m4); IB.setColorAt(i,c.set(cols[(r()*cols.length)|0]));
     const cs=Math.cos(ry), sn=Math.sin(ry); addBox(x-Math.abs(cs)*2.4-Math.abs(sn)*0.95,z-Math.abs(sn)*2.4-Math.abs(cs)*0.95,x+Math.abs(cs)*2.4+Math.abs(sn)*0.95,z+Math.abs(sn)*2.4+Math.abs(cs)*0.95,0,1.5); });
   // hide the head/tail light instances of parked cars
   const zero=new THREE.Matrix4().makeScale(0,0,0); for(let i=0;i<N;i++){ IH.setMatrixAt(i,zero); IT.setMatrixAt(i,zero); }
@@ -2383,14 +2402,14 @@ function buildCars(){
   for(const R of ROADS_NS){ lanes.push({axis:1,c:R.x-3.6,dir:1},{axis:1,c:R.x+3.6,dir:-1}); }
   lanes.push({axis:1,c:-4.3,dir:1,z0:92},{axis:1,c:4.3,dir:-1,z0:92});
   for(let k=0;k<NM;k++){ const L=lanes[k%lanes.length]; CARS.moving.push({i:N+k,L,s:(r()*2-1)*(WR-20),v:9+r()*5,col:cols[(r()*cols.length)|0],cur:0}); IB.setColorAt(N+k,c.set(cols[(r()*cols.length)|0])); }
-  CARS.I={IB,IG,IW,IH,IT}; CARS.N=N;
+  CARS.I={IB,IG,IW,IH,IT,IX,IC}; CARS.N=N;
   const hp=new THREE.BufferGeometry(); hp.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(NM*6),3));
   CARS.glow=new THREE.Points(hp,new THREE.PointsMaterial({map:T.glow,color:lin(2.2,2.1,1.9),size:1.3,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); CARS.glow.frustumCulled=false; Z.district.add(CARS.glow);
   const tp=new THREE.BufferGeometry(); tp.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(NM*6),3));
   CARS.tglow=new THREE.Points(tp,new THREE.PointsMaterial({map:T.glow,color:lin(1.8,0.08,0.05),size:0.9,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); CARS.tglow.frustumCulled=false; Z.district.add(CARS.tglow);
 }
 function updateCars(dt,player){
-  if(!CARS.I) return; const {IB,IG,IW,IH,IT}=CARS.I; const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), e=new THREE.Euler(), v=new THREE.Vector3(), one=new THREE.Vector3(1,1,1);
+  if(!CARS.I) return; const {IB,IG,IW,IH,IT,IX,IC}=CARS.I; const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), e=new THREE.Euler(), v=new THREE.Vector3(), one=new THREE.Vector3(1,1,1);
   const hp=CARS.glow.geometry.attributes.position, tp=CARS.tglow.geometry.attributes.position;
   CARS.moving.forEach((c,k)=>{ const L=c.L; const lim=WR-8;
     let x=L.axis===0?c.s:L.c, z=L.axis===0?L.c:c.s;
@@ -2403,10 +2422,10 @@ function updateCars(dt,player){
     c.s+=c.cur*L.dir*dt; if(c.s>lim) c.s=-lim; if(c.s<-lim) c.s=lim; if(L.z0&&L.axis===1&&(c.s<L.z0)) c.s=lim*L.dir>0?L.z0:lim;
     x=L.axis===0?c.s:L.c; z=L.axis===0?L.c:c.s;
     const ry=Math.atan2(-fz,fx);
-    m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const im of [IB,IG,IW,IH,IT]) im.setMatrixAt(c.i,m4);
+    m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const im of [IB,IG,IW,IH,IT,IX,IC]) im.setMatrixAt(c.i,m4);
     hp.setXYZ(k*2,x+fx*2.5-fz*0.6,0.72,z+fz*2.5+fx*0.6); hp.setXYZ(k*2+1,x+fx*2.5+fz*0.6,0.72,z+fz*2.5-fx*0.6);
     tp.setXYZ(k*2,x-fx*2.45-fz*0.6,0.74,z-fz*2.45+fx*0.6); tp.setXYZ(k*2+1,x-fx*2.45+fz*0.6,0.74,z-fz*2.45-fx*0.6); });
-  for(const im of [IB,IG,IW,IH,IT]) im.instanceMatrix.needsUpdate=true; hp.needsUpdate=true; tp.needsUpdate=true;
+  for(const im of [IB,IG,IW,IH,IT,IX,IC]) im.instanceMatrix.needsUpdate=true; hp.needsUpdate=true; tp.needsUpdate=true;
 }
 const TL={ns:'green',ew:'red'};
 function updateTrafficLights(rt){ const ph=rt%40; TL.ns=ph<17?'green':ph<20?'yellow':'red'; TL.ew=ph<20?'red':ph<37?'green':ph<40?'yellow':'red';
