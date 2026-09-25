@@ -2812,7 +2812,7 @@ function buildVenue(v,sigTex,G,vm){
     for(const x of [0.06,W-0.06]){ const s=x<1?1:-1; for(let z=back+0.5;z<-1.2;z+=0.3) boxMM(g,x-0.02,0.3,z-0.015,x+0.02,2.9,z+0.015,M.oak); for(let y=0.3;y<3;y+=0.3) boxMM(g,x-0.02,y-0.015,back+0.5,x+0.02,y+0.015,-1.2,M.oak); }
     const cans=[], cc=['#6b8f71','#c9a86a','#8a1c1c','#2f4858','#d9cfc1','#a4744b'];
     for(const y of [1.0,1.45,1.9]){ boxMM(g,1,y-0.03,back+0.05,W-1,y,back+0.4,M.walnut); for(let x=1.15;x<W-1.1;x+=0.22) cans.push([x,y,back+0.22,0.12,0.16+r()*0.06,0.12,0,cc[(r()*cc.length)|0]]); }
-    col(1,back,W-1,back+0.45,2.0);
+    col(1,back,W-1,back+0.45,2.0); instProps(g,G.can,vm.gloss,cans);
     for(const [x,z] of [[midX-1.5,-D*0.4],[midX+1.5,-D*0.4],[midX,-D*0.72]]){ boxMM(g,x-0.6,0.32,z-0.4,x+0.6,0.38,z+0.4,M.walnut); for(const [lx,lz] of [[-0.5,-0.3],[0.5,-0.3],[-0.5,0.3],[0.5,0.3]]) boxMM(g,x+lx-0.04,0,z+lz-0.04,x+lx+0.04,0.32,z+lz+0.04,M.walnut);
       for(const [cx2,cz2] of [[0,-0.75],[0,0.75],[-0.95,0],[0.95,0]]) rb(g,0.55,0.12,0.55,0.05,vm.cushion,x+cx2,0.06,z+cz2);
       lathe(g,[[0,0],[0.07,0],[0.1,0.05],[0.1,0.1],[0.06,0.14],[0.02,0.16],[0,0.16]],M.ceramic,x,0.38,z,16); for(let k=0;k<3;k++) lathe(g,[[0,0],[0.025,0],[0.035,0.04],[0,0.04]],M.ceramic,x+Math.cos(k*2.1)*0.25,0.38,z+Math.sin(k*2.1)*0.2,10);
