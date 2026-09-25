@@ -2527,9 +2527,9 @@ function rectMinus(B,R){ const ix0=Math.max(B.x0,R.x0), ix1=Math.min(B.x1,R.x1),
 function planVenue(o,type,len,dp,idx){
   const st=o.style, bayN=st==='classic'?Math.max(2,Math.round(len/3.4)):st==='deco'?Math.max(2,Math.round(len/3.0)):st==='resi'?Math.max(2,Math.round(len/3.6)):Math.max(2,Math.round(len/3.2));
   const bw=len/bayN, r=mulberry32(900+idx*7);
-  let nb=Math.max(3,Math.round(Math.min(len-5,12+r()*5)/bw)); nb=Math.min(nb,bayN-2); if(nb<3) return null;
+  let nb=Math.max(3,Math.round(Math.min(len-5,9.5+r()*3.5)/bw)); nb=Math.min(nb,bayN-2); if(nb<3) return null;
   const a0=Math.floor((bayN-nb)/2), u0=a0*bw, u1=(a0+nb)*bw, db=a0+Math.floor(nb/2);
-  const D=Math.min(dp-5,10+r()*4), f=frameOf(o.frontSide,o.x0,o.z0,o.x1,o.z1), gh=STY[st].gh;
+  const D=Math.min(dp-5,8.6+r()*2.4), f=frameOf(o.frontSide,o.x0,o.z0,o.x1,o.z1), gh=STY[st].gh;
   const [ax,az]=fp(f,u0,0), [bx,bz]=fp(f,u1,-D);
   const v={type,...VINFO[type],idx,o,f,u0,u1,bw,a0,nb,db,W:u1-u0,D,gh,hc:gh-0.55,style:st,inset:st==='classic'?0.42:0.07,
     rect:{x0:Math.min(ax,bx),z0:Math.min(az,bz),x1:Math.max(ax,bx),z1:Math.max(az,bz)}};
@@ -2539,10 +2539,12 @@ function planVenue(o,type,len,dp,idx){
 /* sign boards and gallery canvases, drawn once */
 function venueSignAtlas(){ const W=1024, RH=128; const [c,x]=mkCanvas(W,RH*16); x.clearRect(0,0,W,RH*16);
   VENUES.forEach((v,i)=>{ const y=i*RH; x.save(); x.textAlign='center'; x.textBaseline='middle'; x.fillStyle=v.ink; x.shadowColor=v.ink; x.shadowBlur=v.type==='bar'||v.type==='records'?18:6;
-    x.font=`500 58px ${CNF}`; const cn=v.name; x.fillText(cn,W/2-(v.type==='market'?120:0),y+52);
-    x.shadowBlur=0; x.globalAlpha=0.85; x.font=v.font==='sans'?`500 26px ${UIF}`:v.font==='deco'?`400 28px ${DISPLAY}`:`italic 400 28px ${DISPLAY}`;
-    const en=v.en.split('').join(String.fromCharCode(8202)); x.fillText(en,W/2,y+102); x.globalAlpha=1;
-    if(v.type==='market'){ x.fillStyle='#ff5a4a'; x.fillRect(W/2+130,y+20,120,62); x.fillStyle='#fff'; x.font=`600 40px ${UIF}`; x.fillText('24h',W/2+190,y+52); }
+    const maxW=v.style==='classic'?300:860, badge=v.type==='market'&&v.style!=='classic'; // classic storefronts show the sign between two piers
+    const fit=(txt,px,face)=>{ x.font=face(px); const w=x.measureText(txt).width; if(w>maxW){ px=Math.floor(px*maxW/w); x.font=face(px); } return px; };
+    fit(v.name,58,px=>`500 ${px}px ${CNF}`); x.fillText(v.name,W/2-(badge?120:0),y+52);
+    x.shadowBlur=0; x.globalAlpha=0.85; const en=v.en.split('').join(String.fromCharCode(8202));
+    fit(en,v.font==='sans'?26:28,px=>v.font==='sans'?`500 ${px}px ${UIF}`:v.font==='deco'?`400 ${px}px ${DISPLAY}`:`italic 400 ${px}px ${DISPLAY}`); x.fillText(en,W/2,y+102); x.globalAlpha=1;
+    if(badge){ x.fillStyle='#ff5a4a'; x.fillRect(W/2+130,y+20,120,62); x.fillStyle='#fff'; x.font=`600 40px ${UIF}`; x.fillText('24h',W/2+190,y+52); }
     x.restore(); });
   const t=toTex(c); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
 function artAtlas(){ const W=1024, Ht=512; const [c,x]=mkCanvas(W,Ht); const r=mulberry32(4242);
@@ -2597,6 +2599,7 @@ const VM={}; function venueMats(){ if(VM.done) return VM; VM.done=true;
   VM.wicker=std({color:'#9a6a3a',roughness:0.9,normalMap:T.nWeave,normalScale:new THREE.Vector2(0.8,0.8)});
   VM.bread=std({color:'#b87a3a',roughness:0.75,envMapIntensity:0.4});
   VM.stem=std({color:'#3d6a2c',roughness:0.7}); VM.leafV=std({color:'#ffffff',roughness:0.6,side:THREE.DoubleSide});
+  VM.velvetDark=std({color:'#141b30',roughness:0.95,envMapIntensity:0.3});
   VM.globe=std({color:'#fff3de',emissive:lin(1,0.76,0.46),emissiveIntensity:3,roughness:0.3});
   VM.wall=new Map(); return VM; }
 function wallMatFor(v){ const vm=venueMats(); if(!vm.wall.has(v.wall)){ const c=new THREE.Color(v.wall); const e=c.clone().multiplyScalar(0.06);
@@ -2647,8 +2650,9 @@ function buildVenue(v,sigTex,G,vm){
   boxMM(g,W-0.04,0,-0.34,W+0.04,sy,-0.2,M.darkBronze); boxMM(g,0,sy-0.04,-0.34,W,sy+0.08,-0.18,M.darkBronze);
   // fascia board and illuminated name
   boxMM(g,0.1,sy+0.08,0.0,W-0.1,top,0.12,v.type==='gallery'||v.type==='market'?vm.black:M.darkBronze);
-  { const geo=new THREE.PlaneGeometry(Math.min(W-0.6,7.2),(top-sy-0.1)*0.92); const uv=geo.attributes.uv; for(let k=0;k<uv.count;k++) uv.setY(k,1-(v.idx+1-uv.getY(k))/16);
-    add(g,geo,basic({map:sigTex,color:lin(2.1,1.9,1.6),transparent:true,depthWrite:false}),W/2,(sy+0.08+top)/2,0.125).userData.keep=true; }
+  { const sw=v.style==='classic'?bw-0.9:Math.min(7.2,2*Math.min(dc,W-dc)-0.6), sh=(top-sy-0.1)*0.92, geo=new THREE.PlaneGeometry(sw,sh); const uv=geo.attributes.uv, cut=Math.max(0,(1-sw/(sh*8))/2); // centred on the door bay, cropped to the sign's aspect
+    for(let k=0;k<uv.count;k++){ uv.setX(k,cut+uv.getX(k)*(1-2*cut)); uv.setY(k,1-(v.idx+1-uv.getY(k))/16); }
+    add(g,geo,basic({map:sigTex,color:lin(2.1,1.9,1.6),transparent:true,depthWrite:false}),dc,(sy+0.08+top)/2,0.125).userData.keep=true; }
   col(0,-0.45,dc-dw/2,0.35,3); col(dc+dw/2,-0.45,W,0.35,3);                  // storefront colliders, leaving the door open
   if(['florist','bakery','bistro','tea'].includes(v.type)) for(let b=0;b<v.nb;b++) if(b!==v.db-v.a0) fawn(f,v.u0+(b+0.5)*bw,sy+0.02,bw-2*v.inset+0.3,(v.idx+b)%3);
   const spawn=W2(dc,-2.2); v.spawn=[spawn[0],spawn[1]]; v.spawnYaw=Math.atan2(f.nx,f.nz);
@@ -2698,9 +2702,11 @@ function buildVenue(v,sigTex,G,vm){
     for(let k=0;k<3;k++){ const z=back+1.2+k*2.1; if(z>-2.2) break; const bx=W-0.45; rb(g,0.6,0.46,1.7,0.06,M.velvetRose,bx,0.23,z); rb(g,0.18,0.72,1.7,0.06,M.velvetRose,W-0.12,0.82,z); boxMM(g,W-1.55,0.72,z-0.55,W-0.8,0.76,z+0.55,M.nero); cylY(g,0.05,0.05,0.72,M.gold,W-1.18,0,z,8);
       add(g,new THREE.CylinderGeometry(0.03,0.03,0.06,10),vm.warmGlow,W-1.18,0.8,z); glows.push(W-1.18,0.84,z); col(W-0.8,z-0.9,W,z+0.9,1.2); col(W-1.6,z-0.6,W-0.78,z+0.6,0.8); }
     { const [c,x]=mkCanvas(512,160); x.fillStyle='#000'; x.fillRect(0,0,512,160); x.font=`italic 400 84px ${DISPLAY}`; x.textAlign='center'; x.textBaseline='middle'; x.strokeStyle='#ff5ab4'; x.lineWidth=6; x.shadowColor='#ff5ab4'; x.shadowBlur=20; x.strokeText('Platform',256,84);
-      add(g,new THREE.PlaneGeometry(2.4,0.75),basic({map:toTex(c),color:lin(3,3,3),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}),midX+0.8,2.6,back+0.04).userData.keep=true; }
+      add(g,new THREE.PlaneGeometry(3.0,0.94),basic({map:toTex(c),color:lin(3,3,3),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false}),(midX-0.4+W-1.2)/2,2.35,back+0.1).userData.keep=true; }
     for(let k=0;k<4;k++) pendant(cx1+0.2,cz0+0.8+k*((cz1-cz0-1.6)/3),1.4,'cone');
-    boxMM(g,W*0.35,0,back+0.05,W*0.35+0.02,hc,back+0.07,M.gold);
+    boxMM(g,0.1,0,back+0.02,W-0.1,1.1,back+0.07,M.walnut); boxMM(g,0.1,1.1,back+0.02,W-0.1,1.14,back+0.09,M.gold);
+    { const mx0=midX-0.4, mx1=W-1.2; boxMM(g,mx0,1.35,back+0.03,mx1,hc-0.9,back+0.05,M.mirror); for(const [a,b2,c2,d2] of [[mx0-0.06,1.29,mx1+0.06,1.35],[mx0-0.06,hc-0.9,mx1+0.06,hc-0.84],[mx0-0.06,1.29,mx0,hc-0.84],[mx1,1.29,mx1+0.06,hc-0.84]]) boxMM(g,a,b2,back+0.03,c2,d2,back+0.08,M.gold);
+      for(const sx of [mx0-0.5,mx1+0.5]){ boxMM(g,sx-0.05,1.9,back+0.02,sx+0.05,2.1,back+0.1,M.gold); add(g,new THREE.CylinderGeometry(0.07,0.1,0.16,14,1,true),M.shade,sx,2.2,back+0.16); glows.push(sx,2.2,back+0.16); } }
     light(cx1+0.3,(cz0+cz1)/2,hc-0.6,10); light(W-1.2,back+2.5,1.6,8); light(midX,-D*0.5,hc-0.2,20,{spot:true,to:to3(cx1+0.3,(cz0+cz1)/2,0.15),ang:1.1});
     vact(cx1+0.3,1.2,(cz0+cz1)/2,2.4,'点一杯鸡尾酒',()=>{ const L=['调酒师为你调了一杯 Old Fashioned。','一杯加了橙皮的 Negroni 放在你面前。','Gin Tonic，多加了一片青柠。']; toast(L[(Math.random()*L.length)|0]); sfx('click'); });
   }
@@ -2716,6 +2722,8 @@ function buildVenue(v,sigTex,G,vm){
     for(let k=0;k<4;k++){ const x=W*0.35+k*1.3, z=-D*0.3-(k%2)*1.5; cylY(g,0.005,0.005,1.0,M.darkMetal,x,hc-1.0,z,4); cylY(g,0.16,0.12,0.2,M.ceramic,x,hc-1.2,z,14); for(let j=0;j<14;j++) leaves.push([x+(r()-0.5)*0.35,hc-1.1-r()*0.9,z+(r()-0.5)*0.35,0.1,0.02,0.05,r()*6,'#3f7a36',r()*2,r()*2]); }
     boxMM(g,W-2.4,0,-1.9,W-0.9,0.95,-1.25,M.oak); boxMM(g,W-2.45,0.95,-1.95,W-0.85,1.0,-1.2,vm.white); box(g,0.28,0.1,0.22,M.darkMetal,W-1.3,1.05,-1.55); col(W-2.45,-1.95,W-0.85,-1.2);
     pottedPalm(g,W-0.8,back+0.8,0.8,M.ceramic); colC(W-0.8,back+0.8,0.5);
+    for(let z=back+1.8;z<-2.6;z+=0.5) for(const dx of [0.45,0.95]){ const x=W-dx, sz=dx>0.5?0.34:0.3; buckets.push([x,0,z,sz,sz*1.2,sz,0,'#a7aeb2']); bouquet(x,0,z,dx>0.5?11:8,cols[(r()*cols.length)|0],cols[(r()*cols.length)|0]); } col(W-1.2,back+1.5,W,-2.4,1.0);
+    for(const y of [1.5,2.2]){ boxMM(g,1.9,y-0.04,back+0.03,W-1.6,y,back+0.33,M.oak); for(let x=2.1;x<W-1.8;x+=0.55){ cylY(g,0.1,0.08,0.16,M.ceramic,x,y,back+0.18,14); for(let j=0;j<6;j++) leaves.push([x+(r()-0.5)*0.22,y+0.16+r()*0.2,back+0.18+(r()-0.5)*0.2,0.12,0.02,0.05,r()*6,'#4a8a3e',r()*2,r()*2]); } }
     instProps(g,G.head,vm.petal,heads); instProps(g,G.can,M.stem,stems); instProps(g,G.ball,vm.leafV,leaves); instProps(g,G.can,VM.steel,buckets);
     { const outB=[]; for(let k=0;k<4;k++){ const x=0.6+k*0.55; outB.push([x,0,1.1,0.32,0.36,0.32,0,'#9aa3a8']); bouquet(x,0,1.1,8,cols[(r()*cols.length)|0],cols[(r()*cols.length)|0]); } instProps(g,G.can,VM.steel,outB); instProps(g,G.head,vm.petal,heads.splice(0)); instProps(g,G.can,M.stem,stems.splice(0)); col(0.3,0.8,2.6,1.4,0.9); }
     for(const x of [midX-1.5,midX+1.5]) pendant(x,-D*0.55,1.3,'cone');
@@ -2744,8 +2752,8 @@ function buildVenue(v,sigTex,G,vm){
     const spots=[]; let ai=0; const art=(x,y,z,ry,w,h)=>{ const k=ai++%8; const geo=new THREE.PlaneGeometry(w,h); const uv=geo.attributes.uv; const u0=(k%4)/4, v0=1-(Math.floor(k/4)+1)/2;
         for(let i=0;i<uv.count;i++) uv.setXY(i,u0+uv.getX(i)/4,v0+uv.getY(i)/2); const fg=group(g,x,y,z,ry); add(fg,geo,vm.art,0,0,0.035); boxMM(fg,-w/2-0.04,-h/2-0.04,-0.02,w/2+0.04,h/2+0.04,0.03,vm.black);
         const t=ART_TITLES[k]; vact(x,y,z,2.6,'欣赏'+t.split(' · ')[0],()=>toast(t)); spots.push([x,z]); };
-    const nb2=Math.max(2,Math.floor((W-2)/2.8)); for(let k=0;k<nb2;k++) art(1.4+k*(W-2.8)/Math.max(1,nb2-1),1.65,back+0.03,0,1.5,1.1);
-    art(0.03,1.65,-D*0.45,Math.PI/2,1.4,1.8); art(W-0.03,1.65,-D*0.45,-Math.PI/2,1.4,1.8); if(D>11){ art(0.03,1.6,-D*0.78,Math.PI/2,1.0,1.3); art(W-0.03,1.6,-D*0.78,-Math.PI/2,1.0,1.3); }
+    const nb2=Math.max(2,Math.floor((W-2)/3.2)); for(let k=0;k<nb2;k++) art(1.6+k*(W-3.2)/Math.max(1,nb2-1),1.75,back+0.03,0,2.0,1.45);
+    art(0.03,1.75,-D*0.45,Math.PI/2,1.6,2.0); art(W-0.03,1.75,-D*0.45,-Math.PI/2,1.6,2.0); if(D>9.5){ art(0.03,1.65,-D*0.8,Math.PI/2,1.1,1.4); art(W-0.03,1.65,-D*0.8,-Math.PI/2,1.1,1.4); }
     for(const x of [1.0,W-1.0]){ boxMM(g,x-0.02,hc-0.06,back+0.3,x+0.02,hc-0.02,-0.8,vm.black); for(let z=back+0.8;z<-1;z+=1.6){ const c=add(g,new THREE.CylinderGeometry(0.05,0.06,0.16,12),vm.black,x,hc-0.16,z); c.rotation.x=0.5; } }
     boxMM(g,midX-0.4,0,-D*0.55-0.4,midX+0.4,1.0,-D*0.55+0.4,vm.white); add(g,new THREE.TorusKnotGeometry(0.22,0.07,96,12,2,3),M.gold,midX,1.36,-D*0.55); colC(midX,-D*0.55,0.6);
     rb(g,1.8,0.1,0.5,0.03,M.leatherBlack,midX,0.44,-D*0.3); for(const s of [-0.8,0.8]) boxMM(g,midX+s-0.03,0,-D*0.3-0.2,midX+s+0.03,0.4,-D*0.3+0.2,VM.steel); col(midX-0.95,-D*0.3-0.3,midX+0.95,-D*0.3+0.3,0.6);
@@ -2759,8 +2767,10 @@ function buildVenue(v,sigTex,G,vm){
     instProps(g,G.box,VM.paint,gar);
     boxMM(g,midX-1.0,0,-D*0.5-0.5,midX+1.0,0.8,-D*0.5+0.5,M.oak); boxMM(g,midX-1.05,0.8,-D*0.5-0.55,midX+1.05,0.84,-D*0.5+0.55,M.calacattaPanel); col(midX-1.05,-D*0.5-0.55,midX+1.05,-D*0.5+0.55,0.9);
     { const st=[]; for(let k=0;k<6;k++){ let y=0.84; for(let j=0;j<4;j++){ st.push([midX-0.7+(k%3)*0.7,y,-D*0.5-0.22+Math.floor(k/3)*0.44,0.32,0.05,0.26,0,gc[(r()*gc.length)|0]]); y+=0.05; } } instProps(g,G.box,VM.paint,st); }
-    for(const [x,z,c] of [[midX-1.6,-2.8,'#1b1b1d'],[midX+1.6,-2.8,'#b33a3a']]){ cylY(g,0.16,0.18,0.03,M.gold,x,0,z,18); cylY(g,0.012,0.012,1.0,M.gold,x,0.03,z,6);
-      lathe(g,[[0,0],[0.23,0],[0.3,0.6],[0.2,0.95],[0.16,1.05],[0.2,1.2],[0.08,1.3],[0,1.3]],std({color:c,roughness:0.8}),x,0.35,z,20); add(g,new THREE.SphereGeometry(0.1,14,10),vm.white,x,1.8,z); colC(x,z,0.35); }
+    const winX=[dc-bw,dc+bw].filter(x=>x>1&&x<W-1); for(const [k,x] of winX.entries()){ const z=-1.05, c=['#1b1b1d','#b33a3a'][k%2];
+      rb(g,1.3,0.2,0.9,0.03,M.calacattaPanel,x,0.1,z); cylY(g,0.12,0.14,0.03,M.gold,x,0.2,z,20); cylY(g,0.012,0.012,0.55,M.gold,x,0.23,z,8);
+      lathe(g,[[0,0],[0.25,0],[0.27,0.1],[0.3,0.55],[0.22,0.85],[0.15,0.95],[0.17,1.02],[0.2,1.12],[0.17,1.2],[0.06,1.24],[0,1.24]],std({color:c,roughness:0.75}),x,0.5,z,40);
+      cylY(g,0.045,0.05,0.12,vm.white,x,1.72,z,16); add(g,new THREE.SphereGeometry(0.1,20,14),vm.white,x,1.94,z).scale.set(0.85,1.1,0.95); col(x-0.65,z-0.45,x+0.65,z+0.45,2.0); }
     { const mg=group(g,midX,0,back+0.06,0); boxMM(mg,-0.55,0.05,0,0.55,2.35,0.02,M.mirror); boxMM(mg,-0.6,0,-0.01,0.6,0.08,0.05,M.gold); boxMM(mg,-0.6,2.32,-0.01,0.6,2.4,0.05,M.gold); boxMM(mg,-0.6,0,-0.01,-0.55,2.4,0.05,M.gold); boxMM(mg,0.55,0,-0.01,0.6,2.4,0.05,M.gold); }
     tube(g,[[W-2.4,2.5,back+1.5],[W-0.9,2.5,back+1.5]],0.012,M.chrome,4,6); for(let k=0;k<9;k++){ const x=W-2.35+k*0.16; add(g,new THREE.PlaneGeometry(0.18,2.3),M.drape,x,1.35,back+1.5+Math.sin(k*1.7)*0.05,0,(k%2?0.4:-0.4),0); } col(W-2.5,back,W-0.8,back+1.6,2);
     const kx=dc>W/2?0.8:W-2.4; boxMM(g,kx,0,-1.9,kx+1.5,0.95,-1.3,M.oak); boxMM(g,kx-0.03,0.95,-1.93,kx+1.53,1.0,-1.27,M.calacattaPanel); col(kx-0.03,-1.93,kx+1.53,-1.27);
@@ -2776,6 +2786,9 @@ function buildVenue(v,sigTex,G,vm){
       chairAt(x+0.62,z,-Math.PI/2); chairAt(x-0.62,z,Math.PI/2); lathe(g,[[0,0],[0.03,0],[0.005,0.01],[0.005,0.08],[0.035,0.11],[0.04,0.17],[0,0.17]],VM.bottle,x+0.12,0.76,z-0.1,10); add(g,new THREE.CylinderGeometry(0.02,0.02,0.05,8),vm.warmGlow,x-0.1,0.785,z+0.08); glows.push(x-0.1,0.82,z+0.08); colC(x,z,0.95); }
     boxMM(g,0.3,0,back+0.3,W-0.3,1.05,back+1.1,VM.steel); boxMM(g,0.28,1.05,back+0.28,W-0.28,1.1,back+1.12,M.calacattaPanel); col(0.28,back,W-0.28,back+1.15,1.2);
     for(let x=1.2;x<W-1;x+=1.6){ add(g,new THREE.PlaneGeometry(0.5,0.05),vm.ember,x,1.7,back+0.7,Math.PI/2,0,0); boxMM(g,x-0.3,1.72,back+0.45,x+0.3,1.8,back+0.95,VM.steel); }
+    add(g,new THREE.PlaneGeometry(W-0.6,1.5),M.checker,midX,1.9,back+0.04); boxMM(g,0.5,2.35,back+0.03,W-0.5,2.39,back+0.33,VM.steel);
+    { const pots=[], plates=[]; for(let x=0.8;x<W-0.8;x+=0.34){ if(r()<0.55) pots.push([x,2.39,back+0.18,0.24+r()*0.08,0.14+r()*0.1,0.24,0,r()<0.5?'#b87333':'#c0c4c8']); else for(let k=0;k<5;k++) plates.push([x,2.39+k*0.022,back+0.18,0.24,0.02,0.24,0,'#f4f1ea']); }
+      instProps(g,G.can,VM.steel,pots); instProps(g,G.can,M.ceramic,plates); }
     { const bt=[]; for(let y=0.3;y<2.3;y+=0.2) for(let z=-D*0.35;z<-1.8;z+=0.14) bt.push([0.12,y,z,0.07,0.28,0.07,Math.PI/2,['#2b1414','#3a2a12','#1a2a1a'][(r()*3)|0],0,Math.PI/2]); instProps(g,G.bottle,vm.bottle,bt); boxMM(g,0.03,0.2,-D*0.37,0.42,2.4,-1.7,M.walnut); col(0,-D*0.37,0.45,-1.7,2.4); }
     add(g,new THREE.PlaneGeometry(1.6,1.0),std({map:T.menu,roughness:0.6,emissive:'#ffffff',emissiveMap:T.menu,emissiveIntensity:0.25}),W-0.04,2.2,-D*0.5,0,-Math.PI/2,0);
     for(const [x,z] of tabs.slice(0,6)) pendant(x,z,1.5,'cone');
@@ -2826,7 +2839,10 @@ function buildVenue(v,sigTex,G,vm){
     for(const [x,z] of cases){ boxMM(g,x-0.7,0,z-0.35,x+0.7,0.9,z+0.35,M.walnut); boxMM(g,x-0.66,0.9,z-0.31,x+0.66,0.93,z+0.31,M.velvetBlue); boxMM(g,x-0.7,0.93,z-0.35,x+0.7,1.25,z+0.35,M.glassClear); boxMM(g,x-0.71,1.25,z-0.36,x+0.71,1.27,z+0.36,M.gold);
       for(let k=0;k<10;k++) gl.push([x-0.55+(k%5)*0.27,0.96,z-0.14+Math.floor(k/5)*0.28,0.08,0.08,0.08,r()*3,r()<0.5?'#f2d27a':'#e6e8ec',Math.PI/2]); col(x-0.72,z-0.37,x+0.72,z+0.37,1.3); }
     instProps(g,G.torus,M.gold,gl); { const di=gl.map(q=>[q[0],q[1]+0.05,q[2],0.03,0.03,0.03,0,'#ffffff']); instProps(g,G.ball,VM.coolGlow,di); }
-    for(let x=1.2;x<W-1.2;x+=1.6){ boxMM(g,x-0.6,1.0,back+0.05,x+0.6,2.2,back+0.4,M.nero); add(g,new THREE.PlaneGeometry(1.1,1.1),M.velvetBlue,x,1.6,back+0.41); add(g,new THREE.PlaneGeometry(1.1,0.02),vm.warmGlow,x,2.18,back+0.4); add(g,new THREE.PlaneGeometry(1.2,1.2),M.glassClear,x,1.6,back+0.42); }
+    const nk=[]; for(let x=1.2;x<W-1.2;x+=1.6){ boxMM(g,x-0.6,0.95,back+0.03,x+0.6,1.0,back+0.4,M.nero); boxMM(g,x-0.6,2.2,back+0.03,x+0.6,2.25,back+0.4,M.nero); boxMM(g,x-0.6,1.0,back+0.03,x-0.55,2.2,back+0.4,M.nero); boxMM(g,x+0.55,1.0,back+0.03,x+0.6,2.2,back+0.4,M.nero);
+      add(g,new THREE.PlaneGeometry(1.1,1.2),vm.velvetDark,x,1.6,back+0.05); boxMM(g,x-0.55,2.16,back+0.2,x+0.55,2.2,back+0.38,vm.warmGlow); for(const s2 of [-1,1]) boxMM(g,x+s2*0.6-0.02,0.93,back+0.38,x+s2*0.6+0.02,2.27,back+0.42,M.gold);
+      for(let k=0;k<3;k++){ const cx2=x-0.32+k*0.32; nk.push([cx2,1.62,back+0.08,0.22,0.3,0.06,0,k===1?'#f2d27a':'#e6e8ec']); } }
+    instProps(g,G.torus,M.gold,nk);
     col(0,back,W,back+0.45,2.3);
     armchair(g,M.velvetIvory,0.9,-2.6,Math.PI/2); armchair(g,M.velvetIvory,0.9,-4.0,Math.PI/2); roundTable(g,0.95,-3.3,0.3,0.5,M.nero); colC(0.9,-3.3,0.95);
     chandelier(g,midX,hc-1.1,-D*0.55,[{r:0.45,y:0.3,len:0.32,candles:true},{r:0.24,y:0.62,len:0.22}],0.48);
