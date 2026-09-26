@@ -916,7 +916,7 @@ M.hedge=uvs(std({map:T.hedge, roughness:0.95, color:'#9fbf8a'}),1.6);
 M.grass=uvs(std({map:T.grass, roughness:0.95, envMapIntensity:0.2}),3);
 M.grass.onBeforeCompile=sh=>{ // large-scale colour drift so the lawn never reads as one repeated tile
   sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWPg;').replace('#include <worldpos_vertex>','#include <worldpos_vertex>\n  vWPg=(modelMatrix*vec4(transformed,1.0)).xyz;');
-  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWPg;').replace('#include <map_fragment>','#include <map_fragment>\n  { vec2 p=vWPg.xz; float n=0.5+0.22*sin(p.x*0.071+sin(p.y*0.053)*2.0)+0.18*sin(p.y*0.089+sin(p.x*0.041)*2.3)+0.1*sin((p.x+p.y)*0.23); diffuseColor.rgb*=mix(vec3(1.16,1.06,0.64),vec3(0.84,1.04,0.9),clamp(n,0.0,1.0)); }'); };
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWPg;').replace('#include <map_fragment>','#include <map_fragment>\n  { vec2 p=vWPg.xz; float n=0.5+0.22*sin(p.x*0.071+sin(p.y*0.053)*2.0)+0.18*sin(p.y*0.089+sin(p.x*0.041)*2.3)+0.1*sin((p.x+p.y)*0.23); diffuseColor.rgb*=mix(vec3(1.22,1.08,0.6),vec3(0.72,0.9,0.78),smoothstep(0.2,0.8,n)); }'); };
 M.pavers=uvs(std({map:T.pavers, roughness:0.8, envMapIntensity:0.3}),4.8);
 M.soil=std({color:'#231a12', roughness:1});
 function glowMat(r,g,b){ return basic({color:lin(r,g,b)}); }
@@ -1972,18 +1972,18 @@ function slateTex(){ const S=256; const [c,x]=mkCanvas(S,S); const r=mulberry32(
   for(let j=0;j<16;j++) for(let i=-1;i<9;i++){ const k=0.8+r()*0.4; x.fillStyle=`rgb(${48*k|0},${54*k|0},${62*k|0})`; x.beginPath(); x.roundRect? x.roundRect(i*32+(j%2)*16+1,j*16+1,30,15,[0,0,6,6]) : x.rect(i*32+(j%2)*16+1,j*16+1,30,15); x.fill(); }
   return c; }
 function grassTex(){ const S=1024; const [c,x]=mkCanvas(S,S); const r=mulberry32(84);
-  x.fillStyle='#34482a'; x.fillRect(0,0,S,S);
+  x.fillStyle='#39432a'; x.fillRect(0,0,S,S);
   for(let i=0;i<1400;i++){ x.fillStyle=`rgba(${70+r()*40|0},${58+r()*30|0},${34+r()*18|0},${0.12+r()*0.2})`; const s=2+r()*5; x.fillRect(r()*S,r()*S,s,s*0.7); }   // soil and thatch showing through
   x.lineCap='round';
   for(let i=0;i<34000;i++){ const px=r()*S, py=r()*S, L=5+r()*13, a=r()*TAU, gch=80+r()*110|0, dry=r()<0.08;
-    x.strokeStyle=dry?`rgba(${150+r()*40|0},${135+r()*30|0},${80+r()*20|0},${0.4+r()*0.4})`:`rgba(${(gch*0.42)|0},${gch},${(gch*0.3)|0},${0.35+r()*0.5})`; x.lineWidth=0.8+r()*1.3;
+    x.strokeStyle=dry?`rgba(${150+r()*40|0},${135+r()*30|0},${80+r()*20|0},${0.4+r()*0.4})`:`rgba(${(gch*0.55)|0},${(gch*0.9)|0},${(gch*0.34)|0},${0.35+r()*0.5})`; x.lineWidth=0.8+r()*1.3;
     const ex=Math.cos(a)*L, ey=Math.sin(a)*L;
     for(const [ox,oy] of OFF9){ const qx=px+ox*S, qy=py+oy*S; if(qx+L<0||qx-L>S||qy+L<0||qy-L>S) continue; x.beginPath(); x.moveTo(qx,qy); x.quadraticCurveTo(qx+ex*0.5+ey*0.15,qy+ey*0.5-ex*0.15,qx+ex,qy+ey); x.stroke(); } }
   for(let i=0;i<260;i++){ const px=r()*S, py=r()*S; x.fillStyle=r()<0.5?'rgba(250,245,220,0.55)':'rgba(245,215,90,0.5)'; x.beginPath(); x.arc(px,py,1.2+r()*1.3,0,TAU); x.fill(); }  // tiny clover flowers
   return c; }
 function asphaltTex(){ const S=1024; const [c,x]=mkCanvas(S,S); const r=mulberry32(331); x.fillStyle='#3a3b40'; x.fillRect(0,0,S,S); grain(x,S,S,54,332);
   for(let i=0;i<16000;i++){ const k=r(), s=0.8+r()*2.4; x.fillStyle=k<0.55?`rgba(${150+r()*90|0},${150+r()*85|0},${145+r()*80|0},${0.08+r()*0.26})`:`rgba(0,0,0,${0.1+r()*0.35})`; x.fillRect(r()*S,r()*S,s,s); }   // aggregate
-  for(let i=0;i<4;i++){ const w=90+r()*260, h=70+r()*180, px=r()*(S-w), py=r()*(S-h); x.fillStyle=`rgba(12,12,14,${0.2+r()*0.12})`; x.fillRect(px,py,w,h); x.strokeStyle='rgba(0,0,0,.4)'; x.lineWidth=2.5; x.strokeRect(px,py,w,h); }  // repair patches
+  for(let i=0;i<2;i++){ const w=90+r()*260, h=70+r()*180, px=r()*(S-w), py=r()*(S-h); x.fillStyle=`rgba(12,12,14,${0.08+r()*0.06})`; x.fillRect(px,py,w,h); x.strokeStyle='rgba(0,0,0,.22)'; x.lineWidth=2; x.strokeRect(px,py,w,h); }  // repair patches
   x.lineJoin='round'; x.lineCap='round';
   for(let i=0;i<11;i++){ x.strokeStyle=`rgba(6,6,7,${0.5+r()*0.3})`; x.lineWidth=2+r()*3.5; x.beginPath(); let px=r()*S, py=r()*S, a=r()*TAU; x.moveTo(px,py);   // tar-sealed cracks
     for(let k=0;k<26;k++){ a+=(r()-0.5)*0.9; px+=Math.cos(a)*15; py+=Math.sin(a)*15; x.lineTo(px,py); } x.stroke(); }
@@ -2024,7 +2024,7 @@ M.brick=std({map:T.brick, roughness:0.85, normalMap:nmFrom(T.brick.image,2.2,512
 M.concrete=std({map:T.concrete, roughness:0.8, normalMap:nmFrom(T.concrete.image,1.2,512), envMapIntensity:0.5});
 M.limestone=std({map:T.travertine, color:'#f3ede2', roughness:0.7, normalMap:M.stone.normalMap, envMapIntensity:0.5});
 M.slate=std({map:T.slate, roughness:0.45, normalMap:nmFrom(T.slate.image,2,256), envMapIntensity:0.8});
-M.asphalt=uvs(std({map:T.asphalt, roughness:0.38, normalMap:nmFrom(T.asphalt.image,1.4,512), envMapIntensity:0.7}),6);
+M.asphalt=uvs(std({map:T.asphalt, roughness:0.38, normalMap:nmFrom(T.asphalt.image,1.1,512), envMapIntensity:0.7}),9);
 M.darkMetal=std({color:'#1d1c1b', metalness:0.7, roughness:0.4, envMapIntensity:0.9});
 M.spandrel=std({color:'#0b0f14', metalness:0.8, roughness:0.12, envMapIntensity:1.2});
 M.roof=std({color:'#2b2b2e', roughness:0.95});
@@ -2039,15 +2039,21 @@ M.tl=[0,1,2,3,4,5].map(()=>basic({color:lin(0.05,0.05,0.05)}));
 
 /* ---------- instanced kit: boxes with world-space box-mapped UVs ---------- */
 const KIT=new Map();
-function kitMat(base,uvS){ if(KIT.has(base)) return base; const m=base; const prev=m.onBeforeCompile;
-  m.onBeforeCompile=sh=>{ sh.uniforms.kitUV={value:uvS};
-    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float kitUV;').replace('#include <uv_vertex>',`
+function kitMat(base,uvS,weather=0){ if(KIT.has(base)) return base; const m=base; const prev=m.onBeforeCompile;
+  m.onBeforeCompile=sh=>{ sh.uniforms.kitUV={value:uvS}; sh.uniforms.kitWeather={value:weather};
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float kitUV; varying vec3 vKW;').replace('#include <uv_vertex>',`
       #ifdef USE_UV
         vec4 kwp=modelMatrix*instanceMatrix*vec4(position,1.0); vec3 kn=abs(normalize(mat3(instanceMatrix)*normal));
-        vec2 kuv=kn.y>0.5?kwp.xz:(kn.x>0.5?vec2(kwp.z,kwp.y):kwp.xy); vUv=kuv/kitUV;
+        vec2 kuv=kn.y>0.5?kwp.xz:(kn.x>0.5?vec2(kwp.z,kwp.y):kwp.xy); vUv=kuv/kitUV; vKW=kwp.xyz;
+      #endif`);
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float kitWeather; varying vec3 vKW;').replace('#include <map_fragment>',`#include <map_fragment>
+      #ifdef USE_UV
+        if(kitWeather>0.5){ float hg=vKW.y; float splash=1.0-smoothstep(0.2,1.3,hg);
+          float blot=sin(vKW.x*0.37+sin(vKW.z*0.29)*1.7+hg*0.21)*sin(vKW.z*0.41+hg*0.17+sin(vKW.x*0.23)*1.3);
+          diffuseColor.rgb*=(1.0-0.3*splash)*(0.95+0.08*blot)*(1.0-0.1*smoothstep(12.0,45.0,hg)); }
       #endif`); };
   m.customProgramCacheKey=()=>'kit'; KIT.set(m,[]); return m; }
-const KM={ lime:kitMat(M.limestone.clone(),3.2), trav:kitMat(M.stone.clone(),3.5), brick:kitMat(M.brick.clone(),2.0), conc:kitMat(M.concrete.clone(),3.0), slate:kitMat(M.slate.clone(),2.4),
+const KM={ lime:kitMat(M.limestone.clone(),3.2,1), trav:kitMat(M.stone.clone(),3.5,1), brick:kitMat(M.brick.clone(),2.0,1), conc:kitMat(M.concrete.clone(),3.0,1), slate:kitMat(M.slate.clone(),2.4),
   metal:kitMat(M.darkMetal.clone(),1), bronze:kitMat(M.bronze.clone(),1), gold:kitMat(M.goldSoft.clone(),1), span:kitMat(M.spandrel.clone(),1), roof:kitMat(M.roof.clone(),4),
   nero:kitMat(M.nero.clone(),2.2), hedge:kitMat(M.hedge.clone(),1.6), glass:kitMat(M.glassClear.clone(),1), wood:kitMat(M.walnut.clone(),2.4), band:null };
 for(const k in KM) if(KM[k]) KM[k].userData={};
