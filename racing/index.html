@@ -103,6 +103,9 @@
   #wrongway{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font:italic 700 40px/1 var(--num);letter-spacing:.08em;color:var(--amber);text-shadow:0 2px 20px rgba(0,0,0,.6)}
   #pauseBtn{position:absolute;right:max(16px,2vw);top:calc(var(--safe-t) + 190px);pointer-events:auto;appearance:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--glass);cursor:pointer;display:flex;align-items:center;justify-content:center}
   #pauseBtn svg{width:14px;height:14px}
+  #resetBtn{position:absolute;right:max(16px,2vw);top:calc(var(--safe-t) + 238px);pointer-events:auto;appearance:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--glass);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--paper)}
+  #resetBtn svg{width:17px;height:17px}
+  #hint{position:absolute;left:50%;top:37%;transform:translateX(-50%);padding:10px 16px;font:500 15px/1.4 var(--cn);letter-spacing:.1em;white-space:nowrap}
 
   /* ---------- touch ---------- */
   #touch{position:fixed;inset:auto 0 0 0;height:0;z-index:4}
@@ -157,8 +160,8 @@
     #mapbox{transform:scale(.8);transform-origin:right top}
     #banner .b1{font-size:46px}
   }
-  @media (max-height:520px){ body.touch #dash{bottom:calc(var(--safe-b) + 2px);transform:translateX(-50%) scale(.54)} #mapbox{transform:scale(.72);transform-origin:right top} #pauseBtn{top:calc(var(--safe-t) + 132px)} }
-  @media (max-width:430px){ #mapbox{transform:scale(.62);transform-origin:right top} #pauseBtn{top:calc(var(--safe-t) + 118px)} #tower{transform:scale(.8)} }
+  @media (max-height:520px){ body.touch #dash{bottom:calc(var(--safe-b) + 2px);transform:translateX(-50%) scale(.54)} #mapbox{transform:scale(.72);transform-origin:right top} #pauseBtn{top:calc(var(--safe-t) + 132px)} #resetBtn{top:calc(var(--safe-t) + 178px)} }
+  @media (max-width:430px){ #mapbox{transform:scale(.62);transform-origin:right top} #pauseBtn{top:calc(var(--safe-t) + 118px)} #resetBtn{top:calc(var(--safe-t) + 164px)} #tower{transform:scale(.8)} }
   @media (max-height:600px){ .keys{display:none} .menu-inner{gap:11px;padding-top:calc(var(--safe-t) + 18px)} .brand h1{font-size:52px} .opt{gap:8px} .seg button{height:30px} }
 </style>
 <body>
@@ -177,10 +180,11 @@
       <div class="opt" data-for="race"><label>圈数</label><div class="seg" data-opt="laps"><button data-v="2">2 圈</button><button data-v="3">3 圈</button><button data-v="5">5 圈</button></div></div>
       <div class="opt" data-for="race"><label>对手水平</label><div class="seg" data-opt="diff"><button data-v="0">业余</button><button data-v="1">职业</button><button data-v="2">传奇</button></div></div>
       <div class="opt"><label>车身颜色</label><div class="swatches" data-opt="paint" id="swatches"></div></div>
+      <div class="opt"><label>操控模式</label><div class="seg" data-opt="handling"><button data-v="arcade">街机（易上手）</button><button data-v="sim">写实</button></div></div>
       <div class="opt"><label>转向灵敏度</label><div class="seg" data-opt="steer"><button data-v="0">标准</button><button data-v="1">灵敏</button><button data-v="2">很灵敏</button></div></div>
       <div class="opt"><label>氮气加速</label><div class="seg" data-opt="nitro"><button data-v="on">开启</button><button data-v="off">关闭</button></div></div>
       <div class="opt"><label>变速箱</label><div class="seg" data-opt="gearbox"><button data-v="auto">自动</button><button data-v="manual">手动</button></div></div>
-      <div class="opt"><label>驾驶辅助</label><div class="seg" id="assists"><button data-t="abs">ABS</button><button data-t="tcs">循迹控制</button><button data-t="stm">转向辅助</button></div></div>
+      <div class="opt"><label>驾驶辅助</label><div class="seg" id="assists"><button data-t="abs">ABS</button><button data-t="tcs">循迹控制</button><button data-t="stm">转向辅助</button><button data-t="brk">刹车辅助</button></div></div>
     </div>
     <p class="best-note" id="bestNote" hidden></p>
     <button id="go" class="go" disabled>正在生成赛道…</button>
@@ -193,7 +197,7 @@
       <dt>Shift / N</dt><dd>氮气加速（按住）</dd>
       <dt>E / Q</dt><dd>升档 / 降档（手动挡）</dd>
       <dt>C</dt><dd>切换视角</dd>
-      <dt>R</dt><dd>回到赛道</dd>
+      <dt>R / ↺</dt><dd>回到赛道</dd>
       <dt>Esc</dt><dd>暂停</dd>
     </dl>
   </div>
@@ -210,11 +214,13 @@
   </div>
   <div id="mapbox" class="panel"><canvas id="minimap"></canvas></div>
   <div id="dash"><canvas id="tacho"></canvas><div id="nitro" aria-label="氮气"><div class="bar"><i></i></div><span>N₂O</span></div></div>
-  <div id="assist"><span id="aABS">ABS</span><span id="aTCS">TCS</span><span id="aGear">AUTO</span></div>
+  <div id="assist"><span id="aABS">ABS</span><span id="aTCS">TCS</span><span id="aBRK">BRK</span><span id="aGear">AUTO</span></div>
   <div id="lights" hidden><div class="lamp"><i></i><i></i></div><div class="lamp"><i></i><i></i></div><div class="lamp"><i></i><i></i></div><div class="lamp"><i></i><i></i></div><div class="lamp"><i></i><i></i></div></div>
   <div id="banner"><div class="b1"></div><div class="b2"></div></div>
   <div id="wrongway" hidden>逆行</div>
+  <div id="hint" class="panel" hidden>按 R 或点右上角 ↺ 回到赛道</div>
   <div id="camName" class="panel"></div>
+  <button id="resetBtn" aria-label="回到赛道" title="回到赛道（R）"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 0 1.6-3.7"/><path d="M3 2.5v3h3"/></svg></button>
   <button id="pauseBtn" aria-label="暂停"><svg viewBox="0 0 14 14" fill="currentColor"><rect x="2" y="1" width="3.5" height="12" rx="1"/><rect x="8.5" y="1" width="3.5" height="12" rx="1"/></svg></button>
 </div>
 
@@ -1470,20 +1476,29 @@ const SHADOW_MAT=new THREE.MeshBasicMaterial({map:radialTex([[0,'rgba(0,0,0,0.78
    VEHICLE PHYSICS
    ===================================================================== */
 const PHZ=360, PDT=1/PHZ, RHO=1.2;
-const SURF=[ {name:'asphalt',mu:1.00,crr:0.013,drag:0},
+const SURF_SIM=[ {name:'asphalt',mu:1.00,crr:0.013,drag:0},
              {name:'kerb',   mu:0.93,crr:0.02, drag:0},
              {name:'grass',  mu:0.56,crr:0.07, drag:0.25},
              {name:'gravel', mu:0.48,crr:0.30, drag:1.2} ];
+const SURF_ARC=[ {name:'asphalt',mu:1.00,crr:0.013,drag:0},
+             {name:'kerb',   mu:0.97,crr:0.016,drag:0},
+             {name:'grass',  mu:0.82,crr:0.035,drag:0.08},
+             {name:'gravel', mu:0.72,crr:0.10, drag:0.35} ];
+let SURF=SURF_ARC;
+// Arcade handling (default): more tyre grip for every car, grass and gravel you can drive back out of, wider steering.
+// Simulation handling keeps the plain physics.
+const HANDLING={arcade:true,grip:1.3};
+function applyHandling(arcade){ HANDLING.arcade=arcade; HANDLING.grip=arcade?1.3:1; SURF=arcade?SURF_ARC:SURF_SIM; }
 const MFB=22, MFC=1.3, MFE=0.3;
 const MF=a=>{ const x=MFB*a; return Math.sin(MFC*Math.atan(x-MFE*(x-Math.atan(x)))); };   // lateral force shape: peak near 0.145 rad, ~89 % when sliding
 const WH=[[CAR.tw/2,CAR.a,true],[-CAR.tw/2,CAR.a,true],[CAR.tw/2,-CAR.b,false],[-CAR.tw/2,-CAR.b,false]];
 const CPTS=[[0.98,2.3],[-0.98,2.3],[0.98,-2.2],[-0.98,-2.2],[1.0,0.9],[-1.0,0.9],[1.0,-0.9],[-1.0,-0.9]];
-const ASSIST={abs:true,tcs:true,stm:true,auto:true};
+const ASSIST={abs:true,tcs:true,stm:true,auto:true,brk:true};
 const DBG={flat:false};
 const RULES={nitro:true}, STEER={k:1};
 const NOS={force:7200, dur:4.5, refill:22};           // extra thrust (N), seconds to empty a full tank, seconds to refill it
 // Steering lock for keyboard / pad: full lock at parking speeds, and at speed enough angle to reach the front tyres' peak slip
-function steerLock(u,pad){ return Math.min(CAR.lock,((pad?0.21:0.19)+CAR.L*16/Math.max(u*u,1))*STEER.k); }
+function steerLock(u,pad){ const a=HANDLING.arcade; return Math.min(CAR.lock,((pad?0.21:0.19)+(a?0.08:0)+CAR.L*(a?24:16)/Math.max(u*u,1))*STEER.k); }
 
 const FLAME_POP=lin(4,1.6,0.5), FLAME_NOS=lin(1.5,2.6,8);
 class Car{
@@ -1547,11 +1562,17 @@ class Car{
     this.nosOn=RULES.nitro&&this.in.nos&&this.nos>0.005&&!this.held&&this.gear>=1&&brk<0.3;
     if(this.nosOn){ this.nos=Math.max(0,this.nos-dt/NOS.dur); thr=1; }
     else if(RULES.nitro) this.nos=Math.min(1,this.nos+dt/NOS.refill);
+    // brake assist: slows the car to a safe speed for the corner ahead (from the racing-line speed profile)
+    this.bAssist=false;
+    if(ASSIST.brk&&this.isPlayer&&!this.ai&&!this.held&&this.gear>=1&&u>8&&(RACE.state==='race'||RACE.state==='finished')&&(this.vx*TX[this.seg]+this.vz*TZ[this.seg])>0){
+      const prof=BPROF[HANDLING.arcade?1:0], jv=(this.seg+Math.round((5+u*0.3)/DS))%N, vt=Math.min(prof[jv],prof[(jv+8)%N]+3);
+      if(u>vt+1){ thr=0; this.nosOn=false; brk=Math.max(brk,clamp((u-vt)*0.16,0.15,0.9)); this.bAssist=true; }
+    }
     let delta;
     if(this.aiDelta!=null) delta=this.aiDelta;
     else {
       delta=this.in.steer*steerLock(u,this.pad);
-      if(ASSIST.stm&&u>4){ const ar=Math.atan2(vl-this.w*CAR.b,Math.abs(u)); delta+=Math.sign(ar)*Math.max(0,Math.abs(ar)-0.13)*1.1; }   // counter-steer only once the rear tyres are past their peak
+      if(ASSIST.stm&&u>4){ const ar=Math.atan2(vl-this.w*CAR.b,Math.abs(u)), th=HANDLING.arcade?0.1:0.13; delta+=Math.sign(ar)*Math.max(0,Math.abs(ar)-th)*(HANDLING.arcade?1.5:1.1); }   // counter-steer only once the rear tyres are past their peak
     }
     delta=clamp(delta,-CAR.lock,CAR.lock);
     this.steer+=clamp(delta-this.steer,-4*dt,4*dt);
@@ -1584,7 +1605,7 @@ class Car{
     this.tcsOn=false;
     const surfMu=k=>SURF[this.wh[k].surf].mu;
     const Fz0=m*G/4;
-    const muAt=(k,Fz)=>CAR.mu*surfMu(k)*clamp(1-0.08*(Fz/Fz0-1),0.8,1.1);
+    const muAt=(k,Fz)=>CAR.mu*HANDLING.grip*surfMu(k)*clamp(1-0.08*(Fz/Fz0-1),0.8,1.1);
     const latUse=k=>{ const px=WH[k][0], pz=WH[k][1], cvl=vl+this.w*pz, cvf=u-this.w*px; return Math.abs(MF(Math.atan2(cvl,Math.max(Math.abs(cvf),2.5)))); };
     const availR=Math.min(...[2,3].map(k=>muAt(k,load[k])*load[k]*Math.sqrt(Math.max(0.12,1-Math.pow(latUse(k),2)*0.9))));
     if(ASSIST.tcs&&Fdrive>0&&Fdrive/2>availR*0.96){ Fdrive=2*availR*0.93; this.tcsOn=true; }
@@ -1615,7 +1636,7 @@ class Car{
       } else if(Math.abs(Fx)>Fmax){
         fx=Math.sign(Fx)*Fmax*0.9; fy=Fy0*0.32; slip=0.5+Math.min(1,(Math.abs(Fx)/Fmax-1)*1.5); W.lock=false; W.spin=Fx>0;
       } else {
-        const r=Fx/Fmax; fx=Fx; fy=Fy0*Math.sqrt(Math.max(0,1-r*r*0.9)); W.lock=false; W.spin=false;
+        const r=Fmax>1?Fx/Fmax:0; fx=Fmax>1?Fx:0; fy=Fy0*Math.sqrt(Math.max(0,1-r*r*0.9)); W.lock=false; W.spin=false;   // a lifted wheel (zero load) carries no force
         slip=Math.max(0,Math.abs(alpha)-0.1)*5;
       }
       const cap=Math.abs(vLat)*mq*0.9; if(Math.abs(fy)>cap) fy=Math.sign(fy)*cap;
@@ -1639,8 +1660,11 @@ class Car{
     if(speed<0.6&&Math.abs(thr)<0.05){ this.w*=1-Math.min(1,dt*8); }
     this.x+=this.vx*dt; this.z+=this.vz*dt; this.yaw+=this.w*dt;
     this.axF+=(sumF/m-this.axF)*Math.min(1,dt/0.07); this.ayF+=(sumL/m-this.ayF)*Math.min(1,dt/0.07);
+    if(this.isPlayer&&!this.ai) this.stuckT=(this.speed<1.5&&(this.in.thr>0.3||this.in.brk>0.3)&&RACE.state==='race')?this.stuckT+dt:0;
     this.brakeTemp+=(brk*speed*0.0009-this.brakeTemp*(0.12+speed*0.004))*dt*6; this.brakeTemp=clamp(this.brakeTemp,0,1.2);
     this.walls();
+    if(!isFinite(this.x+this.z+this.vx+this.vz+this.w+this.yaw)){ this.reset(this.goodS||0,0,0); return; }   // numerical safety net
+    this.goodS=this.s;
     // automatic gearbox
     if((ASSIST.auto||this.ai)&&this.shiftT<=0&&!this.held){
       if(this.gear>=1){
@@ -1726,10 +1750,12 @@ function speedProfile(mu){      // quasi-steady lap: cornering limit, then forwa
   }
   return v;
 }
-const VPROF=[speedProfile(0.94),speedProfile(1.12),speedProfile(1.27)];
+const VPROF_SIM=[speedProfile(0.94),speedProfile(1.12),speedProfile(1.27)];
+const VPROF_ARC=[0.94,1.12,1.27].map(m=>speedProfile(m*1.3));
+const BPROF=[speedProfile(1.12),speedProfile(1.12*1.3)];      // brake-assist targets for simulation / arcade grip
 function aiControl(car,cars,dt){
   const i=car.seg, v=car.speed, sn=Math.sin(car.yaw), cs=Math.cos(car.yaw);
-  const prof=VPROF[car.level];
+  const prof=(HANDLING.arcade?VPROF_ARC:VPROF_SIM)[car.level];
   // traffic: pick a side to pass, stay off cars alongside
   let want=0, cap=1e9;
   for(const o of cars){ if(o===car||o.hidden) continue;
@@ -2129,6 +2155,9 @@ function hudUpdate(dt){
   if((camT-=dt)<=0) $('#camName').classList.remove('on');
   $('#aABS').classList.toggle('act',player.absOn); $('#aABS').classList.toggle('off',!ASSIST.abs);
   $('#aTCS').classList.toggle('act',player.tcsOn); $('#aTCS').classList.toggle('off',!ASSIST.tcs);
+  $('#aBRK').classList.toggle('act',!!player.bAssist); $('#aBRK').classList.toggle('off',!ASSIST.brk);
+  const lost=RACE.state==='race'&&!player.ai&&(player.offTrack>=3&&player.speed<9||player.wrongT>1.5||player.stuckT>2.5);
+  player.lostT=lost?(player.lostT||0)+dt:0; $('#hint').hidden=player.lostT<1.2;
   drawTacho(player);
   NOSEL.fill.style.height=(player.nos*100).toFixed(1)+'%'; NOSEL.box.classList.toggle('on',!!player.nosOn); NOSEL.box.classList.toggle('low',player.nos<0.05);
   NOSEL.btn.classList.toggle('on',!!player.nosOn);
@@ -2211,6 +2240,7 @@ for(const [id,k] of [['#tL','l'],['#tR','r'],['#tGas','g'],['#tBrk','b'],['#tNos
   for(const ev of ['pointerup','pointercancel','lostpointercapture']) el.addEventListener(ev,()=>{ TOUCH[k]=0; el.classList.remove('on'); }); }
 $('#tCam').addEventListener('click',()=>setCamMode(CAM.mode+1));
 $('#pauseBtn').addEventListener('click',()=>togglePause());
+$('#resetBtn').addEventListener('click',()=>{ resetPlayer(); canvas.focus(); });
 $('#bResume').addEventListener('click',()=>togglePause(false));
 $('#bRestart').addEventListener('click',()=>{ togglePause(false); startSession(); });
 $('#bMenu').addEventListener('click',()=>{ togglePause(false); toMenu(); });
@@ -2220,7 +2250,7 @@ $('#bMenu2').addEventListener('click',()=>{ $('#results').hidden=true; toMenu();
 /* =====================================================================
    MENU, SESSIONS
    ===================================================================== */
-const OPT={mode:'race',laps:'3',diff:'1',paint:0,gearbox:'auto',abs:true,tcs:true,stm:true,cam:0,steer:'1',nitro:'on'};
+const OPT={mode:'race',laps:'3',diff:'1',paint:0,gearbox:'auto',abs:true,tcs:true,stm:true,brk:true,cam:0,steer:'1',nitro:'on',handling:'arcade'};
 function save(){ try{ OPT.cam=CAM.mode; localStorage.setItem('ridgeline.v1',JSON.stringify({opt:OPT,bestTT:RACE.bestTT,splits:RACE.splits,ghost:RACE.ghost})); }catch(e){} }
 try{ const d=JSON.parse(localStorage.getItem('ridgeline.v1')||'null'); if(d){ Object.assign(OPT,d.opt||{}); RACE.bestTT=d.bestTT||null; if(RACE.bestTT){ RACE.ttSplits=d.splits; RACE.ghost=d.ghost||null; } } }catch(e){}
 function syncMenu(){
@@ -2248,7 +2278,8 @@ function toMenu(){
 }
 function startSession(){
   audioInit(); if(AU.ctx&&AU.ctx.state==='suspended') AU.ctx.resume();
-  Object.assign(ASSIST,{abs:!!OPT.abs,tcs:!!OPT.tcs,stm:!!OPT.stm,auto:OPT.gearbox==='auto'});
+  Object.assign(ASSIST,{abs:!!OPT.abs,tcs:!!OPT.tcs,stm:!!OPT.stm,brk:!!OPT.brk,auto:OPT.gearbox==='auto'});
+  applyHandling(OPT.handling!=='sim');
   RULES.nitro=OPT.nitro!=='off'; STEER.k=[0.85,1,1.2][+OPT.steer]||1; document.body.classList.toggle('no-nitro',!RULES.nitro);
   RACE.session=(RACE.session||0)+1;
   RACE.mode=OPT.mode; RACE.laps=+OPT.laps; RACE.diff=+OPT.diff; RACE.t=0; RACE.cd=0; RACE.finishOrder=[]; RACE.resultsShown=false;
@@ -2394,7 +2425,7 @@ function frame(now){
 
 /* ---------- ready ---------- */
 repaintPlayer(OPT.paint||0);
-RULES.nitro=OPT.nitro!=='off'; STEER.k=[0.85,1,1.2][+OPT.steer]||1;
+RULES.nitro=OPT.nitro!=='off'; STEER.k=[0.85,1,1.2][+OPT.steer]||1; applyHandling(OPT.handling!=='sim');
 setupAttract();
 for(let i=0;i<PHZ*2;i++) physStep();                      // let the field spread out before the first frame
 $('#trackMeta').innerHTML=`<b>${(LEN/1000).toFixed(2)}</b> KM · <b>${CORNERS}</b> 个弯道 · 落差 <b>${Math.round(ELEV)}</b> 米 · 顺时针`;
@@ -2419,7 +2450,7 @@ window.__race={
   menu(){ toMenu(); },
   results(){ showResults(); },
   info:{LEN,N,CORNERS,ELEV,trees:TREES.count},
-  CAR, ASSIST, RACE, RULES, STEER, steerLock, player, cars, DBG, dbg:{MAT,scene,renderer,CARGEO,bloom,finalPass,sunLight,natural,groundH,LAKE,lakeQ,TERR,ELEVF,aiControl}
+  CAR, ASSIST, RACE, RULES, STEER, HANDLING, applyHandling, steerLock, player, cars, DBG, dbg:{MAT,scene,renderer,CARGEO,bloom,finalPass,sunLight,natural,groundH,LAKE,lakeQ,TERR,ELEVF,aiControl}
 };
 })();
 </script>
