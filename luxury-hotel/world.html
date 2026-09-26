@@ -79,6 +79,11 @@
   .btn,#tact .btn{touch-action:manipulation}
   @media (max-height:560px){ #map{width:118px;height:118px} body.touch #tact{flex-direction:row;bottom:calc(env(safe-area-inset-bottom,0px) + 66px)} body.touch #prompt{bottom:calc(env(safe-area-inset-bottom,0px) + 132px)} }
   body.touch #cross{display:none}
+  #speedo{position:fixed;z-index:3;left:max(16px,2.5vw);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);padding:8px 16px;display:flex;align-items:baseline;gap:8px;pointer-events:none;font-variant-numeric:tabular-nums}
+  #speedo b{font:500 30px/1 var(--ui);letter-spacing:.02em;color:var(--ivory)} #speedo span{font:400 11px/1 var(--ui);letter-spacing:.2em;color:var(--ivory-dim)} #speedo i{font:600 14px/1 var(--ui);font-style:normal;color:var(--gold-hi);border:1px solid var(--gold);border-radius:4px;padding:3px 6px;margin-left:4px}
+  body.touch #speedo{bottom:auto;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px)}
+  body.driving #cross{display:none}
+  #fade{position:fixed;inset:0;z-index:5;background:#000;opacity:0;pointer-events:none}
 
   .ov{position:fixed;inset:0;z-index:7;display:flex;overflow-y:auto;text-align:center;padding-inline:16px}
   .ov>div{margin:auto;padding-block:28px}
@@ -115,6 +120,8 @@
 
 <button id="prompt" class="panel" type="button" hidden><kbd id="prompt-k">E</kbd><span id="prompt-t">互动</span></button>
 <div id="toast" class="panel" role="status"></div>
+<div id="speedo" class="panel" hidden aria-live="off"><b id="spd">0</b><span>KM/H</span><i id="gear">D</i></div>
+<div id="fade" aria-hidden="true"></div>
 
 <div id="dock">
   <button class="btn" id="b-goto">快速前往 <kbd>T</kbd></button>
@@ -153,6 +160,8 @@
     <dt>M</dt><dd>放大或缩小地图</dd>
     <dt>T</dt><dd>快速前往</dd>
     <dt>N</dt><dd>切换时间：清晨、正午、黄昏、夜晚（右下角“时间”按钮也可以选）</dd>
+    <dt>开车</dt><dd>走到路边停着的车旁按 E 上车；W/S 油门和刹车（停住后再按 S 倒车），A/D 转向，空格手刹，V 切换车外追尾视角和驾驶座视角，H 按喇叭，车速降下来后按 E 下车</dd>
+    <dt>地铁</dt><dd>酒店花园、高铁站大厅、机场航站楼里都有 1 号线地铁站：下楼过闸机，在站台等车，列车停稳开门后走进车厢，关门后就会开往下一站</dd>
     <dt>手机</dt><dd>左下摇杆行走，拖动画面环顾；出现提示时，点提示条、轻点画面或右侧“互动”按钮都可以互动</dd>
   </dl>
 </section>
@@ -176,7 +185,7 @@
       <button class="tod-opt on" data-tod="night" role="radio" aria-checked="true"><b>夜晚</b><span>23:08</span></button>
     </div>
     <button id="enter" disabled>正在搭建城市 0%</button>
-    <div class="keys"><span><kbd>WASD</kbd>行走</span><span><kbd>鼠标</kbd>环顾</span><span><kbd>Shift</kbd>奔跑</span><span><kbd>E</kbd>互动</span><span><kbd>M</kbd>地图</span><span><kbd>T</kbd>快速前往</span><span><kbd>N</kbd>时间</span></div>
+    <div class="keys"><span><kbd>WASD</kbd>行走</span><span><kbd>鼠标</kbd>环顾</span><span><kbd>Shift</kbd>奔跑</span><span><kbd>E</kbd>互动</span><span><kbd>M</kbd>地图</span><span><kbd>T</kbd>快速前往</span><span><kbd>N</kbd>时间</span><span><kbd>E</kbd>上车 · <kbd>V</kbd>视角</span></div>
     <p id="err" hidden></p>
   </div>
 </section>
@@ -1080,7 +1089,7 @@ const sky=new THREE.Mesh(new THREE.SphereGeometry(4000,48,24), skyMat); sky.frus
 function buildCity(){
   const g=Z.city;
   T.cityGround.repeat.set(17.5,17.5);
-  const ground=D.cityGround=add(g, new THREE.PlaneGeometry(7000,7000), std({color:'#1a1b1f', roughness:0.95, emissive:'#ffffff', emissiveMap:T.cityGround, emissiveIntensity:1.3, envMapIntensity:0.05}), 0,-0.06,0, -Math.PI/2,0,0);
+  const ground=D.cityGround=add(g, holedGround(7000,[...HOLES,AIRR,HSRR,RAILR]), std({color:'#1a1b1f', roughness:0.95, emissive:'#ffffff', emissiveMap:T.cityGround, emissiveIntensity:1.3, envMapIntensity:0.05}), 0,-0.06,0);
   ground.userData.keep=true;
   const r=mulberry32(77), items=[];
   for(let bi=-17;bi<17;bi++) for(let bj=-17;bj<17;bj++){
@@ -1098,6 +1107,7 @@ function buildCity(){
     }
   }
   items.push({x:-880,z:-1320,w:22,d:22,h:250,c:[0.12,0.12,0.14]});
+  for(let i=items.length-1;i>=0;i--){ const b=items[i]; if(EXCL.some(q=>b.x+b.w/2>q.x0&&b.x-b.w/2<q.x1&&b.z+b.d/2>q.z0&&b.z-b.d/2<q.z1)) items.splice(i,1); }
   const geo=new THREE.BoxGeometry(1,1,1); geo.translate(0,0.5,0);
   const mat=std({color:'#ffffff', map:T.cityWin, roughness:0.55, metalness:0.25, emissive:'#ffffff', emissiveMap:T.cityWin, emissiveIntensity:1.25, envMapIntensity:0.3});
   mat.onBeforeCompile=sh=>{ sh.uniforms.uTime={value:0}; mat.userData.shader=sh;
@@ -1139,7 +1149,7 @@ function buildCity(){
       vertexShader:`attribute vec4 aRoad; attribute float aSpeed; uniform float uTime, uScale, uK; varying vec3 vC; varying float vA;
         void main(){ float L=3400.0; float s=(fract(aRoad.w+uTime*aSpeed*14.0/L)*L-1700.0)*aRoad.z;
           vec3 p=aRoad.x<0.5?vec3(s,0.7,aRoad.y):vec3(aRoad.y,0.7,s);
-          float excl=step(abs(p.x),345.0)*step(abs(p.z),345.0); vA=(1.0-excl)*(1.0-smoothstep(1400.0,1700.0,length(p.xz)));
+          float excl=step(abs(p.x),345.0)*step(abs(p.z),345.0); excl=max(excl,step(290.0,p.x)*step(p.x,1170.0)*step(-410.0,p.z)*step(p.z,970.0)); excl=max(excl,step(-500.0,p.z)*step(p.z,-420.0)); excl=max(excl,step(-10.0,p.x)*step(p.x,350.0)*step(-500.0,p.z)*step(p.z,-290.0)); vA=(1.0-excl)*(1.0-smoothstep(1400.0,1700.0,length(p.xz)));
           vC=aRoad.z>0.0?vec3(2.4,2.2,1.9):vec3(2.2,0.12,0.06);
           vec4 mv=modelViewMatrix*vec4(p,1.0); float fogK=exp(-pow(0.00052*length(mv.xyz),2.0)); vA*=fogK*uK;
           gl_PointSize=clamp(3.2*uScale/-mv.z,1.2,9.0); gl_Position=projectionMatrix*mv; }`,
@@ -1958,6 +1968,7 @@ function setCurtain(m, closed){ // closed: 0 = gathered at the sides, 1 = drawn 
    THE DISTRICT — procedural, facade-level detail on every street
    ===================================================================== */
 Z.district=new THREE.Group(); scene.add(Z.district); COLROOTS.set(Z.district,0);
+for(const k of ['metro','hsr','air','links']){ Z[k]=new THREE.Group(); scene.add(Z[k]); COLROOTS.set(Z[k],0); }
 const MAP={ roads:[], blocks:[], bldgs:[], hotel:{x0:-24.5,z0:-50,x1:24.5,z1:0.5} };
 const ROADS_EW=[{z:80,w:16},{z:200,w:14},{z:-190,w:14}], ROADS_NS=[{x:-170,w:14},{x:170,w:14}], BLVD={x:0,w:14,z0:44,z1:300}, WR=300;
 const SIDEWALK=4;
@@ -2404,14 +2415,16 @@ function buildStreets(){
   // trees on the sidewalks and in the hotel gardens
   const r=mulberry32(909);
   for(let i=0;i<220;i++){ const x=(r()-0.5)*300, z=-176+r()*240; if(Math.abs(x)<40&&z>-70) continue; if(Math.abs(x)<16) continue; if(Math.abs(x)>155||z>64||z<-176) continue; TREES.push([x,z,5+r()*5]); }
+  for(let i=TREES.length-1;i>=0;i--){ const [x,z]=TREES[i]; if(METRO.some(st=>x>Math.min(st.sx0,st.sx1)-6&&x<Math.max(st.sx0,st.sx1)+9&&Math.abs(z-st.oz)<10)) TREES.splice(i,1); }
   for(const [x,z] of TREES) addCircle(x,z,0.35);
   buildTrees(g,TREES);
   for(const [x,z] of TREES.filter(t=>Math.abs(t[0])>150||Math.abs(t[1]-80)<14||Math.abs(t[1]-200)<12||Math.abs(t[1]+190)<12)) kbox(KM.metal,x-0.7,0.15,z-0.7,x+0.7,0.17,z+0.7);
   // hotel grounds: lawn and a paved garden walk around it
-  planeXZ(g,318,244,M.grass,0,0.004,-55); for(const s of [-1,1]) planeXZ(g,6,110,M.pavers,s*42,0.012,-5);
+  planeRects(g,rectsMinus({x0:-159,x1:159,z0:-177,z1:67},HOLES),M.grass,0.004); for(const s of [-1,1]) planeXZ(g,6,110,M.pavers,s*42,0.012,-5);
   planeXZ(g,90,6,M.pavers,0,0.012,-62);
   // outer boundary: the city continues, but the walkable district ends here
-  for(const [x0,z0,x1,z1] of [[-WR-2,-WR-2,WR+2,-WR],[-WR-2,WR,WR+2,WR+2],[-WR-2,-WR,-WR,WR],[WR,-WR,WR+2,WR]]) addBox(x0,z0,x1,z1,0,10);
+  for(const [x0,z0,x1,z1] of [[-WR-2,-WR-2,159,-WR],[181,-WR-2,WR+2,-WR],[-WR-2,WR,WR+2,WR+2],[-WR-2,-WR,-WR,WR],[WR,-WR,WR+2,68],[WR,92,WR+2,WR]]) addBox(x0,z0,x1,z1,0,10);
+  for(const [a,b] of [[54,71],[89,192],[208,264]]) CARLOW.push({x0:-1.5,x1:1.5,z0:a,z1:b});
 }
 function leafClusterTex(){ const S=256; const [c,x]=mkCanvas(S,S); x.clearRect(0,0,S,S); const r=mulberry32(4242);
   const cols=['#2b5020','#3a6628','#4a7932','#5c8c3b','#27451c','#6c9844','#44702d'];
@@ -2504,13 +2517,19 @@ function carGeos(){
   const head=mergeGeos([[new THREE.BoxGeometry(0.03,0.08,0.32),new THREE.Matrix4().makeTranslation(2.465,0.72,0.56)],[new THREE.BoxGeometry(0.03,0.08,0.32),new THREE.Matrix4().makeTranslation(2.465,0.72,-0.56)]]);
   const tail=mergeGeos([[new THREE.BoxGeometry(0.03,0.1,0.32),new THREE.Matrix4().makeTranslation(-2.395,0.74,0.56)],[new THREE.BoxGeometry(0.03,0.1,0.32),new THREE.Matrix4().makeTranslation(-2.395,0.74,-0.56)]]);
   const T3=(x,y,z,ry=0)=>new THREE.Matrix4().makeRotationY(ry).setPosition(x,y,z), bx=(w,h,d)=>new THREE.BoxGeometry(w,h,d);
+  const rims=[], hubs=[];
   const dark=[[bx(0.05,0.17,0.78),T3(2.44,0.57,0)],[bx(0.14,0.11,1.52),T3(2.36,0.35,0)],[bx(0.14,0.13,1.56),T3(-2.34,0.4,0)],[bx(0.05,0.11,0.42),T3(-2.4,0.56,0)]];
   const chrome=[[bx(0.05,0.12,0.4),T3(2.43,0.72,0.56)],[bx(0.05,0.12,0.4),T3(2.43,0.72,-0.56)],[bx(0.04,0.13,0.4),T3(-2.37,0.74,0.56)],[bx(0.04,0.13,0.4),T3(-2.37,0.74,-0.56)],[bx(0.02,0.015,0.8),T3(2.47,0.66,0)],[bx(0.02,0.015,0.8),T3(2.47,0.5,0)]];
   for(const sd of [-1,1]){ dark.push([bx(0.16,0.09,0.13),T3(0.58,1.02,sd*0.93)],[bx(2.7,0.07,0.03),T3(-0.05,0.37,sd*0.905)]);
     chrome.push([bx(2.15,0.02,0.02),T3(-0.47,1.035,sd*0.765)],[bx(0.14,0.025,0.03),T3(0.25,0.8,sd*0.905)],[bx(0.14,0.025,0.03),T3(-0.85,0.8,sd*0.905)]);
     for(const wx of [1.45,-1.5]){ const arch=new THREE.RingGeometry(0.35,0.43,20,1,0,Math.PI); dark.push([arch,T3(wx,0.34,sd*0.915,sd>0?0:Math.PI)]);
-      const rim=new THREE.CylinderGeometry(0.21,0.21,0.02,18); rim.rotateX(Math.PI/2); chrome.push([rim,T3(wx,0.34,sd*0.965)]); const hub=new THREE.CylinderGeometry(0.06,0.06,0.03,10); hub.rotateX(Math.PI/2); dark.push([hub,T3(wx,0.34,sd*0.975)]); } }
-  return { body:mergeGeos([[body,I],[bx(1.12,0.04,1.2),T3(-0.65,1.43,0)]]), glass, wheel:mergeGeos(wheels), head, tail, dark:mergeGeos(dark), chrome:mergeGeos(chrome) };
+      const rim=new THREE.CylinderGeometry(0.21,0.21,0.02,18); rim.rotateX(Math.PI/2); rims.push([rim,T3(wx,0.34,sd*0.965)]); const hub=new THREE.CylinderGeometry(0.06,0.06,0.03,10); hub.rotateX(Math.PI/2); hubs.push([hub,T3(wx,0.34,sd*0.975)]); } }
+  // one loose wheel (tyre, rim, hub) for the car you drive, so it can spin and steer
+  const tyre=new THREE.CylinderGeometry(0.34,0.34,0.24,20); tyre.rotateX(Math.PI/2);
+  const rim1=new THREE.CylinderGeometry(0.21,0.21,0.02,18); rim1.rotateX(Math.PI/2); rim1.translate(0,0,0.125); const spokes=mergeGeos([0,1,2,3,4].map(k=>[bx(0.34,0.035,0.012),new THREE.Matrix4().makeRotationZ(k*TAU/5).setPosition(0,0,0.137)]));
+  const hub1=new THREE.CylinderGeometry(0.06,0.06,0.03,10); hub1.rotateX(Math.PI/2); hub1.translate(0,0,0.14);
+  return { body:mergeGeos([[body,I],[bx(1.12,0.04,1.2),T3(-0.65,1.43,0)]]), glass, wheel:mergeGeos(wheels), head, tail, dark:mergeGeos([...dark,...hubs]), chrome:mergeGeos([...chrome,...rims]),
+    darkB:mergeGeos(dark), chromeB:mergeGeos(chrome), tyre, rim:mergeGeos([[rim1,I],[spokes,I]]), hub:hub1 };
 }
 const CARS={parked:[],moving:[]};
 function buildCars(){
@@ -2524,12 +2543,16 @@ function buildCars(){
   const spots=[];
   for(const R of ROADS_EW) for(const s of [-1,1]) for(let x=-WR+12;x<WR-8;x+=6.2){ if(Math.abs(x)<24||Math.abs(Math.abs(x)-170)<24||r()<0.45) continue; spots.push([x,R.z+s*(R.w/2-1.3),s>0?Math.PI:0]); }
   for(const R of ROADS_NS) for(const s of [-1,1]) for(let z=-WR+12;z<WR-8;z+=6.2){ if(ROADS_EW.some(e=>Math.abs(z-e.z)<24)||r()<0.45) continue; spots.push([R.x+s*(R.w/2-1.3),z,s>0?-Math.PI/2:Math.PI/2]); }
+  spots.push([3.6,50,-Math.PI/2,'#0c0c0e'],[-3.6,50,Math.PI/2,'#e9e6df']);                                            // valet cars on the hotel drive
+  LOTROWS.forEach((zc,i)=>{ for(let x=312;x<430;x+=2.7){ if(r()<0.62) continue; spots.push([x,zc,(i%2?1:-1)*Math.PI/2*(r()<0.8?1:-1)]); } });   // airport car park
+  for(let x=112;x<160;x+=6.5) spots.push([x,-362.5,0,r()<0.5?'#2f7d55':'#d9b73a']);                                   // taxis at the station
   const N=spots.length, NM=26, tot=N+NM;
   const mk=(g,m,c)=>{ const im=new THREE.InstancedMesh(g,m,tot); im.frustumCulled=false; im.castShadow=m!==headM&&m!==tailM; im.receiveShadow=true; Z.district.add(im); return im; };
   const IB=mk(G.body,paint), IG=mk(G.glass,glassM), IW=mk(G.wheel,wheelM), IH=mk(G.head,headM), IT=mk(G.tail,tailM), IX=mk(G.dark,trimM), IC=mk(G.chrome,chromeM);
   const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), e=new THREE.Euler(), v=new THREE.Vector3(), one=new THREE.Vector3(1,1,1), c=new THREE.Color();
-  spots.forEach(([x,z,ry],i)=>{ m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const im of [IB,IG,IW,IH,IT,IX,IC]) im.setMatrixAt(i,m4); IB.setColorAt(i,c.set(cols[(r()*cols.length)|0]));
-    const cs=Math.cos(ry), sn=Math.sin(ry); addBox(x-Math.abs(cs)*2.4-Math.abs(sn)*0.95,z-Math.abs(sn)*2.4-Math.abs(cs)*0.95,x+Math.abs(cs)*2.4+Math.abs(sn)*0.95,z+Math.abs(sn)*2.4+Math.abs(cs)*0.95,0,1.5); });
+  spots.forEach(([x,z,ry,fc],i)=>{ m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const im of [IB,IG,IW,IH,IT,IX,IC]) im.setMatrixAt(i,m4); const col=fc||cols[(r()*cols.length)|0]; IB.setColorAt(i,c.set(col));
+    const cs=Math.cos(ry), sn=Math.sin(ry); addBox(x-Math.abs(cs)*2.4-Math.abs(sn)*0.95,z-Math.abs(sn)*2.4-Math.abs(cs)*0.95,x+Math.abs(cs)*2.4+Math.abs(sn)*0.95,z+Math.abs(sn)*2.4+Math.abs(cs)*0.95,0,1.5);
+    CARS.parked.push({i,x,z,y:0,h:ry,col,box:COL[COL.length-1],dyn:null}); });
   // hide the head/tail light instances of parked cars
   const zero=new THREE.Matrix4().makeScale(0,0,0); for(let i=0;i<N;i++){ IH.setMatrixAt(i,zero); IT.setMatrixAt(i,zero); }
   const lanes=[];
@@ -2537,7 +2560,7 @@ function buildCars(){
   for(const R of ROADS_NS){ lanes.push({axis:1,c:R.x-3.6,dir:1},{axis:1,c:R.x+3.6,dir:-1}); }
   lanes.push({axis:1,c:-4.3,dir:1,z0:92},{axis:1,c:4.3,dir:-1,z0:92});
   for(let k=0;k<NM;k++){ const L=lanes[k%lanes.length]; CARS.moving.push({i:N+k,L,s:(r()*2-1)*(WR-20),v:9+r()*5,col:cols[(r()*cols.length)|0],cur:0}); IB.setColorAt(N+k,c.set(cols[(r()*cols.length)|0])); }
-  CARS.I={IB,IG,IW,IH,IT,IX,IC}; CARS.N=N;
+  CARS.I={IB,IG,IW,IH,IT,IX,IC}; CARS.N=N; CARS.G=G; CARS.M={paint,glassM,wheelM,trimM,chromeM,headM,tailM};
   const hp=new THREE.BufferGeometry(); hp.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(NM*6),3));
   CARS.glow=new THREE.Points(hp,new THREE.PointsMaterial({map:T.glow,color:lin(2.2,2.1,1.9),size:1.3,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); CARS.glow.frustumCulled=false; Z.district.add(CARS.glow);
   const tp=new THREE.BufferGeometry(); tp.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(NM*6),3));
@@ -2556,7 +2579,7 @@ function updateCars(dt,player){
     const target=(blocked||stopLine)?0:c.v; c.cur+=(target-c.cur)*Math.min(1,dt*(target<c.cur?3:1));
     c.s+=c.cur*L.dir*dt; if(c.s>lim) c.s=-lim; if(c.s<-lim) c.s=lim; if(L.z0&&L.axis===1&&(c.s<L.z0)) c.s=lim*L.dir>0?L.z0:lim;
     x=L.axis===0?c.s:L.c; z=L.axis===0?L.c:c.s;
-    const ry=Math.atan2(-fz,fx);
+    const ry=Math.atan2(-fz,fx); c.x=x; c.z=z; c.fx=fx; c.fz=fz;
     m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const im of [IB,IG,IW,IH,IT,IX,IC]) im.setMatrixAt(c.i,m4);
     hp.setXYZ(k*2,x+fx*2.5-fz*0.6,0.72,z+fz*2.5+fx*0.6); hp.setXYZ(k*2+1,x+fx*2.5+fz*0.6,0.72,z+fz*2.5-fx*0.6);
     tp.setXYZ(k*2,x-fx*2.45-fz*0.6,0.74,z-fz*2.45+fx*0.6); tp.setXYZ(k*2+1,x-fx*2.45+fz*0.6,0.74,z-fz*2.45-fx*0.6); });
@@ -2566,6 +2589,138 @@ const TL={ns:'green',ew:'red'};
 function updateTrafficLights(rt){ const ph=rt%40; TL.ns=ph<17?'green':ph<20?'yellow':'red'; TL.ew=ph<20?'red':ph<37?'green':ph<40?'yellow':'red';
   const set=(base,st)=>{ M.tl[base].color.setRGB(...(st==='red'?[4,0.12,0.06]:[0.12,0.02,0.02])); M.tl[base+1].color.setRGB(...(st==='yellow'?[4,2.4,0.2]:[0.12,0.08,0.01])); M.tl[base+2].color.setRGB(...(st==='green'?[0.2,3.6,1.4]:[0.01,0.08,0.04])); };
   set(0,TL.ns); set(3,TL.ew); }
+
+/* ---------- driving: walk up to any parked car, get in and take it out ---------- */
+const DRIVE={on:false,car:null,x:0,y:0,z:0,h:0,v:0,steer:0,acc:0,cam:0,look:0,lookP:0,lookT:0,camYaw:0,rpm:850,thr:0,brake:0,roll:0,pitch:0,wheelA:0,shake:0,camD:6};
+const CARLOW=[];                                   // low things a car cannot climb (median planters)
+const CARPTS=[[2.1,0.66],[2.1,-0.66],[2.15,0],[0.7,0.7],[0.7,-0.7],[-0.7,0.7],[-0.7,-0.7],[-2.05,0.66],[-2.05,-0.66],[-2.1,0]];
+function dashTex(){ const [c,x]=mkCanvas(512,160); return {c,x,tex:toTex(c,1,1,true),last:-1}; }
+function buildDriveCar(){ const G=CARS.G, K=CARS.M;
+  const g=new THREE.Group(); g.visible=false; g.userData.dyn=true; scene.add(g); DRIVE.g=g;
+  const paint=K.paint.clone(); DRIVE.paint=paint; const tail=K.tailM.clone(); DRIVE.tailM=tail;
+  const shell=new THREE.Group(); g.add(shell); DRIVE.shell=shell;
+  for(const [geo,m] of [[G.body,paint],[G.glass,K.glassM],[G.darkB,K.trimM],[G.chromeB,K.chromeM],[G.head,K.headM],[G.tail,tail]]){ const mm=new THREE.Mesh(geo,m); mm.castShadow=false; mm.receiveShadow=true; mm.userData.noCast=true; shell.add(mm); if(geo===G.body) DRIVE.bodyMesh=mm; }
+  { // from the driver's seat the body's solid top would hide the cabin: show just the bonnet and wings ahead of the windscreen instead
+    const p=G.body.attributes.position, n=G.body.attributes.normal, P=[], N=[]; for(let i=0;i<p.count;i+=3){ if(p.getX(i)>0.55&&p.getX(i+1)>0.55&&p.getX(i+2)>0.55) for(let k=0;k<3;k++){ P.push(p.getX(i+k),p.getY(i+k),p.getZ(i+k)); N.push(n.getX(i+k),n.getY(i+k),n.getZ(i+k)); } }
+    const hg=new THREE.BufferGeometry(); hg.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); hg.setAttribute('normal',new THREE.Float32BufferAttribute(N,3)); DRIVE.hood=new THREE.Mesh(hg,paint); DRIVE.hood.visible=false; shell.add(DRIVE.hood); }
+  DRIVE.wheels=[];
+  for(const [wx,wz] of [[1.45,0.84],[1.45,-0.84],[-1.5,0.84],[-1.5,-0.84]]){ const pivot=new THREE.Group(); pivot.position.set(wx,0.34,wz); g.add(pivot);
+    const side=new THREE.Group(); side.scale.z=wz<0?-1:1; pivot.add(side); const spin=new THREE.Group(); side.add(spin);
+    for(const [geo,m] of [[G.tyre,K.wheelM],[G.rim,K.chromeM],[G.hub,K.trimM]]){ const mm=new THREE.Mesh(geo,m); mm.userData.noCast=true; spin.add(mm); }
+    DRIVE.wheels.push({pivot,spin,front:wx>0}); }
+  shadowBlob(g,0,0,5.6,2.5,0.03);
+  // the cabin you see from the driver's seat (left-hand drive: the driver sits on the -z side)
+  const cab=new THREE.Group(); shell.add(cab); cab.visible=false; DRIVE.cabin=cab;
+  const lth=std({color:'#1b1815',roughness:0.6,envMapIntensity:0.4}), soft=std({color:'#3b342d',roughness:0.9,envMapIntensity:0.3}), liner=std({color:'#9a9184',roughness:0.95,envMapIntensity:0.3}), alu=std({color:'#9a9a9e',metalness:1,roughness:0.3}), wood=M.walnut;
+  const B=(x0,y0,z0,x1,y1,z1,m,rz=0)=>{ const b=box(cab,Math.abs(x1-x0),Math.abs(y1-y0),Math.abs(z1-z0),m,(x0+x1)/2,(y0+y1)/2,(z0+z1)/2); b.rotation.z=rz; return b; };
+  B(0.16,0.7,-0.8,0.66,0.95,0.8,lth); B(0.02,0.72,-0.8,0.18,0.9,0.8,soft); B(0.03,0.86,-0.1,0.2,0.89,0.8,wood);                // dash, lower dash, wood trim
+  B(0.3,0.95,-0.6,0.5,1.07,-0.16,lth);                                                                                        // instrument hood
+  const dt=dashTex(); DRIVE.dash=dt; const dm=basic({map:dt.tex,color:lin(1.25,1.2,1.1)}); const scr=add(cab,new THREE.PlaneGeometry(0.34,0.106),dm,0.295,1.0,-0.38); scr.rotation.order='YXZ'; scr.rotation.set(-0.3,-Math.PI/2,0);
+  { const [c,x]=mkCanvas(256,160); const gr=x.createLinearGradient(0,0,0,160); gr.addColorStop(0,'#0b1522'); gr.addColorStop(1,'#050a10'); x.fillStyle=gr; x.fillRect(0,0,256,160);
+    x.strokeStyle='rgba(120,170,220,.55)'; x.lineWidth=3; for(let i=0;i<7;i++){ x.beginPath(); x.moveTo(0,20+i*22); x.lineTo(256,10+i*25); x.stroke(); } x.strokeStyle='#e8c56e'; x.lineWidth=5; x.beginPath(); x.moveTo(128,160); x.lineTo(128,90); x.lineTo(190,40); x.stroke();
+    x.fillStyle='#e8c56e'; x.beginPath(); x.arc(128,120,7,0,TAU); x.fill(); x.fillStyle='rgba(242,236,224,.8)'; x.font=`500 18px ${UIF}`; x.fillText('AURELLE NAV',12,24);
+    B(0.3,0.95,-0.02,0.34,1.1,0.26,lth); const nav=add(cab,new THREE.PlaneGeometry(0.26,0.14),basic({map:toTex(c),color:lin(0.9,0.9,0.9)}),0.295,1.03,0.12); nav.rotation.order='YXZ'; nav.rotation.set(-0.12,-Math.PI/2,0); }
+  B(-0.55,0.38,-0.12,0.2,0.62,0.12,lth); B(-0.2,0.62,-0.03,-0.14,0.74,0.03,alu); add(cab,new THREE.SphereGeometry(0.035,12,8),lth,-0.17,0.76,0);        // console and gear lever
+  for(const sd of [-1,1]){ B(-1.0,0.42,sd*0.8,0.62,0.97,sd*0.76,soft); B(-0.6,0.66,sd*0.74,0.1,0.7,sd*0.66,lth);                              // door cards and armrests
+    const ap=B(-0.26,1.145,sd*0.7,0.68,1.205,sd*0.64,lth,-0.502); ap.position.set(0.21,1.175,sd*0.67);                                                // A-pillars
+    B(-0.82,0.95,sd*0.74,-0.7,1.38,sd*0.66,lth); }                                                                                             // B-pillars
+  add(cab,new THREE.PlaneGeometry(1.2,1.3),liner,-0.62,1.365,0,Math.PI/2,0,0); B(-0.25,1.33,-0.64,-0.1,1.4,0.64,liner);                       // roof liner and header
+  B(-0.1,1.27,-0.12,-0.07,1.33,0.12,lth); add(cab,new THREE.PlaneGeometry(0.22,0.055),M.mirror,-0.105,1.3,0,0,-Math.PI/2,0);                  // mirror
+  for(const sd of [1]){ B(-0.78,0.42,sd*0.14,-0.2,0.56,sd*0.62,soft); const bk=B(-0.86,0.56,sd*0.14,-0.74,1.18,sd*0.62,soft,-0.12); B(-0.86,1.2,sd*0.24,-0.76,1.36,sd*0.52,soft); }  // passenger seat
+  // steering wheel: tilt, face the driver, then turn with the steering
+  const tilt=group(cab,0.1,0.93,-0.38); tilt.rotation.z=-0.42; const face=group(tilt); face.rotation.y=-Math.PI/2; const sw=group(face); DRIVE.sw=sw;
+  add(sw,new THREE.TorusGeometry(0.185,0.017,10,40),std({color:'#2a211a',roughness:0.5,envMapIntensity:0.5})); box(sw,0.33,0.03,0.02,alu,0,-0.02,0); box(sw,0.03,0.17,0.02,alu,0,-0.1,0); add(sw,new THREE.CylinderGeometry(0.06,0.06,0.05,20),lth,0,0,0.01,Math.PI/2,0,0);
+  cylY(cab,0.035,0.045,0.3,lth,0.2,0.74,-0.38,12).rotation.z=1.19;
+  cab.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.receiveShadow=false; o.userData.noCast=true; } });
+  // headlights: one spot light made at startup so no shader ever has to recompile when you start driving
+  const lamp=new THREE.SpotLight(0xfff2dd,0,70,0.5,0.55,2); lamp.castShadow=false; scene.add(lamp,lamp.target); DRIVE.lamp=lamp;
+}
+function drawDash(){ const d=DRIVE, t=d.dash, kmh=Math.round(Math.abs(d.v)*3.6); if(!t||kmh===t.last) return; t.last=kmh; const x=t.x;
+  x.fillStyle='#07090c'; x.fillRect(0,0,512,160); x.strokeStyle='rgba(201,168,106,.5)'; x.lineWidth=3;
+  for(const cx of [110,402]){ x.beginPath(); x.arc(cx,92,62,Math.PI*0.8,Math.PI*2.2); x.stroke(); }
+  const a=Math.PI*0.8+clamp(kmh/200,0,1)*Math.PI*1.4, r=clamp(d.rpm/7000,0,1), b=Math.PI*0.8+r*Math.PI*1.4;
+  x.strokeStyle='#f0d49a'; x.lineWidth=5; x.beginPath(); x.moveTo(110,92); x.lineTo(110+Math.cos(a)*56,92+Math.sin(a)*56); x.stroke();
+  x.strokeStyle='#e0572f'; x.beginPath(); x.moveTo(402,92); x.lineTo(402+Math.cos(b)*56,92+Math.sin(b)*56); x.stroke();
+  x.fillStyle='#f2ece0'; x.font=`500 58px ${UIF}`; x.textAlign='center'; x.fillText(String(kmh),256,88); x.font=`400 18px ${UIF}`; x.fillStyle='rgba(242,236,224,.7)'; x.fillText('km/h',256,114);
+  x.fillStyle='#ecd6a2'; x.font=`500 26px ${UIF}`; x.fillText(d.v<-0.2?'R':Math.abs(d.v)<0.2&&d.thr===0?'P':'D',256,150); t.tex.needsUpdate=true; }
+function carLocal(c,lx,lz){ const cs=Math.cos(c.h), sn=Math.sin(c.h); return [c.x+lx*cs+lz*sn, c.z-lx*sn+lz*cs]; }
+function setCarInstance(c,hide){ const I=CARS.I, m4=new THREE.Matrix4(); if(hide) m4.makeScale(0,0,0); else m4.compose(new THREE.Vector3(c.x,c.y,c.z),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,c.h,0)),new THREE.Vector3(1,1,1));
+  for(const k of ['IB','IG','IW','IX','IC']){ I[k].setMatrixAt(c.i,m4); I[k].instanceMatrix.needsUpdate=true; } }
+function carHits(x,z,h,y){ const cs=Math.cos(h), sn=Math.sin(h);
+  for(const [lx,lz] of CARPTS){ const px=x+lx*cs+lz*sn, pz=z-lx*sn+lz*cs; if(blocked(px,pz,y)) return true; for(const r of CARLOW) if(px>r.x0&&px<r.x1&&pz>r.z0&&pz<r.z1) return true; }
+  for(const lx of [2.1,-2.05]){ const px=x+lx*cs, pz=z-lx*sn, zn=zoneAt(px,y+0.3,pz); if(zn!=='street'&&zn!=='ext') return true; }
+  for(const m of CARS.moving){ if(m.x===undefined||Math.abs(m.x-x)>7||Math.abs(m.z-z)>7) continue;
+    for(const a of [-1.5,0,1.5]) for(const b of [-1.5,0,1.5]){ const dx=x+a*cs-(m.x+b*m.fx), dz=z-a*sn-(m.z+b*m.fz); if(dx*dx+dz*dz<3.4) return true; } }
+  return false; }
+function nearCar(){ if(DRIVE.on||P.y>1.2||P.inCab) return null; let best=null, bd=1.35;
+  for(const c of CARS.parked){ const dx=P.x-c.x, dz=P.z-c.z; if(dx*dx+dz*dz>30) continue; const cs=Math.cos(c.h), sn=Math.sin(c.h), lx=dx*cs-dz*sn, lz=dx*sn+dz*cs;
+    const d=Math.hypot(Math.max(0,Math.abs(lx)-2.4),Math.max(0,Math.abs(lz)-0.95)); if(d<bd){ bd=d; best=c; } }
+  return best; }
+function enterCar(c){ const d=DRIVE; d.on=true; d.car=c; d.x=c.x; d.z=c.z; d.y=c.y; d.h=c.h; d.v=0; d.steer=0; d.look=0; d.lookP=0; d.camYaw=c.h; d.rpm=850; d.pitch=d.roll=0; d.camD=4;
+  c.driving=true; if(c.box){ c.box.y0=c.box.y1=99; } setCarInstance(c,true);
+  d.paint.color.set(c.col); d.g.visible=true; P.vx=P.vz=0; S.lying=0; sfx('latch'); setTimeout(()=>sfx('engine'),350);
+  body.classList.add('driving'); $('#t-run').textContent='视角'; $('#t-act').textContent='下车'; $('#speedo').hidden=false;
+  toast(isTouch?'摇杆控制油门和方向 · 右侧按钮切换视角、下车':'W/S 油门刹车 · A/D 转向 · 空格手刹 · V 切换视角 · H 喇叭 · E 下车'); }
+function exitCar(force){ const d=DRIVE, c=d.car; if(!c) return; const tries=[[-0.2,-1.75],[-0.2,1.75],[-3.2,0],[3.2,0],[-0.2,-2.6],[-0.2,2.6]]; let spot=null;
+  for(const [lx,lz] of tries){ const [px,pz]=carLocal(d,lx,lz); const gy=groundAt(px,pz,d.y+0.3); if(!blocked(px,pz,gy)&&zoneAt(px,gy,pz)!=='cab'){ spot=[px,pz,gy]; break; } }
+  if(!spot){ if(!force){ toast('这里太挤了，挪一下再下车'); return; } spot=[d.x,d.z,d.y]; }
+  d.on=false; d.car=null; c.driving=false; c.x=d.x; c.z=d.z; c.y=d.y; c.h=d.h; setCarInstance(c,false); d.g.visible=false; d.lamp.intensity=0;
+  if(!c.dyn){ c.dyn=[-1.5,0,1.5].map(()=>({t:1,x:0,z:0,r:0.95,y0:0,y1:1.5,on:()=>!c.driving})); DYN.push(...c.dyn); }
+  c.dyn.forEach((q,k)=>{ const [px,pz]=carLocal(c,(k-1)*1.5,0); q.x=px; q.z=pz; q.y0=c.y; q.y1=c.y+1.5; });
+  P.x=spot[0]; P.z=spot[1]; P.y=spot[2]; P.vx=P.vz=P.vy=0; P.yaw=d.h-Math.PI/2+d.look; P.pitch=0; sfx('latch');
+  body.classList.remove('driving'); $('#t-run').textContent=P.run?'慢走':'奔跑'; $('#t-act').textContent='互动'; $('#speedo').hidden=true; }
+function driveStep(dt){ const d=DRIVE;
+  const up=keys.has('w')||keys.has('arrowup'), dn=keys.has('s')||keys.has('arrowdown');
+  const thr=clamp((up?1:0)-(dn?1:0)-joy.y,-1,1), st=clamp((keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0)+joy.x,-1,1), hb=keys.has(' ');
+  d.thr=thr; d.steer+=(st-d.steer)*Math.min(1,dt*(Math.abs(st)<0.05?5:3));
+  const v=d.v, av=Math.abs(v); let a=0; d.brake=0;
+  if(thr>0.05){ if(v<-0.4){ a=11*thr; d.brake=1; } else a=thr*5.4*(1-Math.pow(clamp(v/38,0,1),1.8)); }
+  else if(thr<-0.05){ if(v>0.4){ a=11*thr; d.brake=1; } else a=v>-8?thr*3.6:0; }
+  if(hb&&av>0.05){ a-=Math.sign(v)*8.5; d.brake=1; }
+  a-=0.0036*v*av+(av>0.05?Math.sign(v)*(Math.abs(thr)<0.05?0.7:0.25):0);
+  let nv=v+a*dt; if(v!==0&&Math.sign(nv)!==Math.sign(v)&&(Math.abs(thr)<0.05||d.brake)) nv=0; if(Math.abs(nv)<0.03&&Math.abs(thr)<0.05) nv=0;
+  d.acc=dt>0?(nv-v)/dt:0; d.v=nv;
+  const delta=d.steer*lerp(0.6,0.09,clamp(av/32,0,1)), yawRate=-d.v*Math.tan(delta)/2.95*(hb&&av>6?1.6:1);
+  const nh=d.h+yawRate*dt, nx=d.x+Math.cos(nh)*d.v*dt, nz=d.z-Math.sin(nh)*d.v*dt;
+  if(!carHits(nx,nz,nh,d.y)){ d.x=nx; d.z=nz; d.h=nh; }
+  else if(!carHits(nx,d.z,d.h,d.y)&&Math.abs(Math.cos(d.h))>0.3){ d.x=nx; d.v*=Math.pow(0.3,dt); }
+  else if(!carHits(d.x,nz,d.h,d.y)&&Math.abs(Math.sin(d.h))>0.3){ d.z=nz; d.v*=Math.pow(0.3,dt); }
+  else { if(av>3){ sfx(av>9?'crash':'bump'); d.shake=Math.min(1,av/14); } d.v=-d.v*0.15; }
+  const gy=groundAt(d.x,d.z,d.y+0.2); d.y+=(gy-d.y)*Math.min(1,dt*12);
+  d.pitch+=(clamp(d.acc*0.0045,-0.045,0.03)-d.pitch)*Math.min(1,dt*5); d.roll+=(clamp(yawRate*d.v*0.011,-0.06,0.06)-d.roll)*Math.min(1,dt*5);
+  d.wheelA+=d.v*dt/0.34; for(const w of d.wheels){ w.spin.rotation.z=-d.wheelA; if(w.front) w.pivot.rotation.y=-delta; }
+  d.g.position.set(d.x,d.y,d.z); d.g.rotation.y=d.h; d.shell.rotation.set(d.roll,0,d.pitch); d.sw.rotation.z=-d.steer*2.2;
+  d.tailM.color.setRGB(...(d.brake||d.v<-0.2?[7,0.3,0.2]:[3.2,0.15,0.1]));
+  const night=TODK.lamps>=0.5; d.lamp.intensity=night?260:0; if(night){ const [lx,lz]=carLocal(d,2.2,0), [tx,tz]=carLocal(d,24,0); d.lamp.position.set(lx,d.y+0.75,lz); d.lamp.target.position.set(tx,d.y-0.6,tz); d.lamp.target.updateMatrixWorld(); }
+  d.rpmTarget=Math.abs(d.v)<0.3?850+Math.max(0,thr)*2200:(()=>{ const Gs=[0,9,16,23,30,60]; let gi=1; while(gi<5&&av>Gs[gi]) gi++; const t=clamp((av-Gs[gi-1])/(Gs[gi]-Gs[gi-1]),0,1); return (gi===1?1100:2300)+t*(gi===5?2600:3900)+Math.max(0,thr)*400; })();
+  d.rpm+=(d.rpmTarget-d.rpm)*Math.min(1,dt*7);
+  P.x=d.x; P.z=d.z; P.y=d.y; P.vx=P.vz=P.vy=0; P.inCab=false; P.onStair=false;
+}
+const wrapA=a=>{ while(a>Math.PI) a-=TAU; while(a<-Math.PI) a+=TAU; return a; };
+function driveCamera(dt){ const d=DRIVE, av=Math.abs(d.v), now=performance.now();
+  if(now-d.lookT>1400&&av>1.5){ d.look*=1-Math.min(1,dt*2.2); d.lookP*=1-Math.min(1,dt*2.2); }
+  d.shake=Math.max(0,d.shake-dt*2.5); const sh=d.shake*d.shake*0.12, jx=(Math.random()-0.5)*sh, jy=(Math.random()-0.5)*sh;
+  d.cabin.visible=d.hood.visible=d.cam===1; d.bodyMesh.visible=d.cam!==1;
+  if(d.cam===1){ const eye=new THREE.Vector3(-0.3,1.17,-0.38); d.g.updateMatrixWorld(true); d.shell.localToWorld(eye); camera.position.copy(eye); camera.position.y+=jy;
+    camera.rotation.set(clamp(d.lookP-0.06+d.pitch,-1.2,1.2)+jx,d.h-Math.PI/2+d.look,0); P.yaw=d.h-Math.PI/2+d.look; }
+  else { d.camYaw+=wrapA(d.h-d.camYaw)*Math.min(1,dt*(2.4+av*0.06)); const yw=d.camYaw+d.look;
+    const want=6.2+av*0.045, ht=2.05+av*0.012-d.lookP*3.2; d.camD+=(want-d.camD)*Math.min(1,dt*3);
+    let k=1; for(let i=1;i<=6;i++){ const f=i/6, px=d.x-Math.cos(yw)*d.camD*f, pz=d.z+Math.sin(yw)*d.camD*f; if(blocked(px,pz,d.y+ht*f-1.2)){ k=Math.max(0.35,(i-1)/6); break; } }
+    camera.position.set(d.x-Math.cos(yw)*d.camD*k+jx, d.y+Math.max(0.9,ht)*(0.55+0.45*k)+jy, d.z+Math.sin(yw)*d.camD*k);
+    camera.lookAt(d.x+Math.cos(yw)*2.5, d.y+1.05, d.z-Math.sin(yw)*2.5); P.yaw=yw-Math.PI/2; }
+  camera.near=d.cam===1?0.03:0.1; camera.updateProjectionMatrix(); camera.updateMatrixWorld(); drawDash();
+}
+function carSound(on){ // engine, tyres and wind while you drive
+  if(!AU.ctx) return; const c=AU.ctx, now=c.currentTime, d=DRIVE;
+  if(on&&!AU.eng){ const o1=c.createOscillator(); o1.type='sawtooth'; const o2=c.createOscillator(); o2.type='square'; const g2=c.createGain(); g2.gain.value=0.45;
+    const f=c.createBiquadFilter(); f.type='lowpass'; f.Q.value=3; const g=c.createGain(); g.gain.value=0; o1.connect(f); o2.connect(g2); g2.connect(f); f.connect(g); g.connect(AU.master);
+    const n=c.createBufferSource(); n.buffer=AU.noise; n.loop=true; const nf=c.createBiquadFilter(); nf.type='bandpass'; nf.Q.value=0.7; const ng=c.createGain(); ng.gain.value=0; n.connect(nf); nf.connect(ng); ng.connect(AU.master);
+    o1.frequency.value=28; o2.frequency.value=14; o1.start(); o2.start(); n.start(); AU.eng={o1,o2,f,g,n,nf,ng,stop:0}; }
+  const E=AU.eng; if(!E) return;
+  if(!on){ E.g.gain.setTargetAtTime(0,now,0.12); E.ng.gain.setTargetAtTime(0,now,0.12); if(!E.stop) E.stop=now+0.8; else if(now>E.stop){ try{ E.o1.stop(); E.o2.stop(); E.n.stop(); }catch(e){} AU.eng=null; } return; }
+  E.stop=0; const av=Math.abs(d.v), thr=Math.max(0,d.v<0?-d.thr:d.thr);
+  E.o1.frequency.setTargetAtTime(d.rpm/30,now,0.04); E.o2.frequency.setTargetAtTime(d.rpm/60,now,0.04); E.f.frequency.setTargetAtTime(220+d.rpm*0.16+thr*700,now,0.05);
+  E.g.gain.setTargetAtTime(0.035+0.05*thr,now,0.06); E.nf.frequency.setTargetAtTime(260+av*22,now,0.1); E.ng.gain.setTargetAtTime(clamp(av/32,0,1)*0.075,now,0.15); }
 
 /* ---------- the corner café: a real interior you can walk into ---------- */
 function buildCafe(){
@@ -2987,6 +3142,646 @@ function buildVenue(v,sigTex,G,vm){
 }
 
 /* =====================================================================
+   TRANSIT: metro line 1 (three underground stations and its trains),
+   the high-speed rail station and the international airport
+   ===================================================================== */
+const PL_Y=-11, CC_Y=-5.4, TRK=7.0, MLINE='#c8102e';          // platform and concourse floors; track centres ±7 m off each station's axis
+const METRO=[
+  {id:'garden',n:'澜悦花园',e:'Lanyue Garden',ox:-100,oz:38,dir:1},
+  {id:'hsr',n:'澜城南站',e:'Lancheng South Rly Stn',ox:140,oz:-406,dir:1},
+  {id:'air',n:'国际机场',e:'Intl Airport',ox:530,oz:-40,dir:-1}];
+for(const s of METRO){ s.sx0=s.ox+s.dir*42; s.sx1=s.ox+s.dir*52.8; s.hole={x0:Math.min(s.sx0,s.sx1),x1:Math.max(s.sx0,s.sx1),z0:s.oz-2.6,z1:s.oz+2.6}; s.gx=s.ox+s.dir*22; }
+const HOLES=METRO.map(s=>s.hole);                              // stairwells cut through the ground
+const UNDER=METRO.map(s=>({x0:Math.min(s.ox-46,s.sx1)-0.5,x1:Math.max(s.ox+46,s.sx1)+0.5,z0:s.oz-12.8,z1:s.oz+12.8}));
+const RAMPS=[];                                                // stairs and ramps: height runs linearly along x or z
+const AIRR={x0:300,x1:1160,z0:-400,z1:960}, HSRR={x0:0,x1:340,z0:-480,z1:-300}, RAILR={x0:-3500,x1:3500,z0:-476,z1:-440};
+const EXCL=[AIRR,HSRR,{x0:-4000,x1:4000,z0:-490,z1:-425}];   // no backdrop towers here
+const HSR={x0:90,x1:250,z0:-432,z1:-382,py:1.55,t1:-453.9,t2:-459.6};
+const AIR={x0:470,x1:545,z0:-140,z1:60};
+const inR=(r,x,z)=>x>r.x0&&x<r.x1&&z>r.z0&&z<r.z1;
+function rectsMinus(B,holes){ let out=[B]; for(const h of holes){ const nx=[]; for(const r of out) nx.push(...rectMinus(r,h)); out=nx; } return out; }
+function addRamp(x0,z0,x1,z1,ax,ya,yb){ RAMPS.push({x0:Math.min(x0,x1),z0:Math.min(z0,z1),x1:Math.max(x0,x1),z1:Math.max(z0,z1),ax,ya,yb}); }
+function colOn(x0,z0,x1,z1,y0,y1,on){ addBox(x0,z0,x1,z1,y0,y1); COL[COL.length-1].on=on; }
+// the city's ground plane with the stairwells, the airport and the rail corridor cut out
+function holedGround(size,holes){ const h=size/2, rects=rectsMinus({x0:-h,z0:-h,x1:h,z1:h},holes), P=[], U=[];
+  for(const r of rects){ const q=[[r.x0,r.z0],[r.x0,r.z1],[r.x1,r.z1],[r.x0,r.z0],[r.x1,r.z1],[r.x1,r.z0]]; for(const [x,z] of q){ P.push(x,0,z); U.push((x+h)/size,(h-z)/size); } }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(new Array(P.length/3).fill(0).flatMap(()=>[0,1,0]),3)); return g; }
+function planeRects(g,rects,mat,y){ for(const r of rects) planeXZ(g,r.x1-r.x0,r.z1-r.z0,mat,(r.x0+r.x1)/2,y,(r.z0+r.z1)/2); }
+function surfRects(rects,y){ for(const r of rects) addSurface(r.x0,r.z0,r.x1,r.z1,y); }
+// a slanted box: from (xa,ya) to (xb,yb) along x, given thickness and depth span z0..z1
+function slab(g,mat,xa,ya,xb,yb,t,z0,z1){ const L=Math.hypot(xb-xa,yb-ya); const m=box(g,L,t,Math.abs(z1-z0),mat,(xa+xb)/2,(ya+yb)/2,(z0+z1)/2); m.rotation.z=Math.atan2(yb-ya,xb-xa); return m; }
+function stairs(g,mat,nose,x0,x1,y0,y1,z0,z1,alongZ,bodyMat){ // steps from (x0,y0) up to (x1,y1); x may run either way. alongZ swaps axes; bodyMat: risers and sides under a thin tread
+  const n=Math.max(2,Math.round(Math.abs(y1-y0)/0.16)), dx=(x1-x0)/n, dy=(y1-y0)/n, base=Math.min(y0,y1)-0.25, w=Math.abs(z1-z0), zc=(z0+z1)/2;
+  for(let i=0;i<n;i++){ const a=x0+dx*i, b=a+dx, top=y0+dy*(i+1); const lo=Math.min(a,b), hi=Math.max(a,b), c=(lo+hi)/2, mid=bodyMat?top-0.05:top;
+    const B=(m,y0_,y1_,d0,d1)=>alongZ?box(g,w,y1_-y0_,d1-d0,m,zc,(y0_+y1_)/2,(d0+d1)/2):box(g,d1-d0,y1_-y0_,w,m,(d0+d1)/2,(y0_+y1_)/2,zc);
+    B(bodyMat||mat,base,mid,lo,hi); if(bodyMat) B(mat,mid,top,lo,hi);
+    if(nose){ const nx=dx>0?lo+0.03:hi-0.03; B(nose,top,top+0.012,nx-0.025,nx+0.025); } } }
+
+/* ---------- textures and materials ---------- */
+function graniteTex(base,seed,tile=256){ const S=512; const [c,x]=mkCanvas(S,S); const r=mulberry32(seed); x.fillStyle=base; x.fillRect(0,0,S,S);
+  for(let i=0;i<S/tile;i++) for(let j=0;j<S/tile;j++){ x.fillStyle=`rgba(${r()<0.5?'0,0,0':'255,255,255'},${r()*0.05})`; x.fillRect(i*tile,j*tile,tile,tile); }
+  for(let k=0;k<14000;k++){ const d=r(); x.fillStyle=d<0.45?`rgba(30,30,32,${0.2+r()*0.5})`:d<0.8?`rgba(255,255,255,${0.2+r()*0.5})`:`rgba(150,120,100,${0.2+r()*0.4})`; const s=0.6+r()*1.7; x.fillRect(r()*S,r()*S,s,s); }
+  grain(x,S,S,18,seed+1); x.fillStyle='rgba(60,60,62,.5)'; for(let p=0;p<S;p+=tile){ x.fillRect(p,0,2,S); x.fillRect(0,p,S,2); } return c; }
+function textTex(W,Ht,draw){ const [c,x]=mkCanvas(W,Ht); draw(x,W,Ht); const t=toTex(c,1,1,true); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+function metroLogo(x,cx,cy,r){ x.fillStyle=MLINE; x.beginPath(); x.arc(cx,cy,r,0,TAU); x.fill(); x.fillStyle='#fff'; x.font=`700 ${r*1.25|0}px ${UIF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('M',cx,cy+r*0.06); }
+function stationName(s){ return textTex(1024,256,(x,W,Ht)=>{ x.fillStyle='#f4f3ef'; x.fillRect(0,0,W,Ht); x.fillStyle=MLINE; x.fillRect(0,0,W,22); x.fillRect(0,Ht-22,W,22);
+  metroLogo(x,110,Ht/2,62); x.fillStyle='#1b1d22'; x.textAlign='left'; x.textBaseline='alphabetic'; x.font=`500 104px ${CNF}`; x.fillText(s.n,205,140); x.font=`500 38px ${UIF}`; x.fillStyle='#50545c'; x.fillText(s.e.toUpperCase(),210,200); }); }
+function ledGrid(x,W,Ht){ x.fillStyle='rgba(0,0,0,.38)'; for(let yy=0;yy<Ht;yy+=4) x.fillRect(0,yy,W,1); for(let xx=0;xx<W;xx+=4) x.fillRect(xx,0,1,Ht); }
+const TM={};
+function transitMats(){ if(TM.done) return TM; TM.done=true;
+  T.granite=toTex(graniteTex('#cfcdc7',901)); T.graniteD=toTex(graniteTex('#8d8b86',902)); T.graniteW=toTex(graniteTex('#e2dfd8',903,512));
+  TM.floor=uvs(std({map:T.granite,roughness:0.16,envMapIntensity:0.9,normalMap:T.nTiles,normalScale:new THREE.Vector2(0.25,0.25)}),2.4);
+  TM.floorD=uvs(std({map:T.graniteD,roughness:0.2,envMapIntensity:0.8}),2.4);
+  TM.floorW=uvs(std({map:T.graniteW,roughness:0.12,envMapIntensity:1.0,normalMap:T.nTiles,normalScale:new THREE.Vector2(0.2,0.2)}),4.8);
+  TM.wall=uvs(std({color:'#e9e7e1',roughness:0.3,envMapIntensity:0.8}),2);
+  TM.wallG=uvs(std({color:'#8e9196',roughness:0.45,metalness:0.3,envMapIntensity:0.7}),2);
+  TM.line=std({color:MLINE,roughness:0.35,envMapIntensity:0.6});
+  TM.alu=std({color:'#b4b7bb',metalness:0.9,roughness:0.3,envMapIntensity:1.0});
+  TM.dark=std({color:'#26282c',metalness:0.5,roughness:0.5});
+  TM.ceil=uvs(std({color:'#3b3e44',metalness:0.55,roughness:0.55,envMapIntensity:0.5}),2);
+  TM.ceilW=uvs(std({color:'#dedcd6',roughness:0.6,envMapIntensity:0.4}),3);
+  TM.light=basic({color:lin(2.3,2.3,2.2)});
+  TM.lightW=basic({color:lin(5.5,4.6,3.4)});
+  TM.conc=uvs(std({map:T.concrete,color:'#8a8883',roughness:0.9,normalMap:M.concrete.normalMap,envMapIntensity:0.3}),3);
+  TM.concL=uvs(std({map:T.concrete,color:'#d4d1ca',roughness:0.85,normalMap:M.concrete.normalMap,envMapIntensity:0.35}),3);
+  TM.bed=uvs(std({map:T.concrete,color:'#55534f',roughness:0.95,envMapIntensity:0.2}),3);
+  TM.rail=std({color:'#9b9690',metalness:0.95,roughness:0.28,envMapIntensity:1.1});
+  TM.yellow=uvs(std({color:'#d9a21b',roughness:0.55}),1);
+  TM.glass=std({color:'#dfeaef',metalness:0,roughness:0.03,transparent:true,opacity:0.14,depthWrite:false,envMapIntensity:2.4});
+  TM.steel=std({color:'#c9cbce',metalness:1,roughness:0.22,envMapIntensity:1.2});
+  TM.screen=basic({color:lin(0.25,0.55,1.1)});
+  TM.stone=uvs(std({map:T.travertine,color:'#efe9dd',roughness:0.6,normalMap:M.stone.normalMap,envMapIntensity:0.5}),3.5);
+  TM.grass=M.grass; TM.road=M.asphalt;
+  TM.seatBlue=std({color:'#28406e',roughness:0.6,envMapIntensity:0.5});
+  TM.gold=M.goldSoft;
+  TM.logo=basic({map:textTex(256,256,(x)=>{ x.clearRect(0,0,256,256); metroLogo(x,128,128,120); }),transparent:true,color:lin(1.6,1.6,1.6)});
+  TM.poster=M.poster;
+  return TM; }
+/* ---------- metro line 1: stations ---------- */
+const CARC=[-29.25,-9.75,9.75,29.25], DOORX=CARC.flatMap(c=>[-7.05,-2.35,2.35,7.05].map(o=>c+o));
+function segsMinus(a,b,cuts){ let segs=[[a,b]]; for(const [c0,c1] of cuts){ const nx=[]; for(const [p,q] of segs){ if(c1<=p||c0>=q){ nx.push([p,q]); continue; } if(c0>p) nx.push([p,c0]); if(c1<q) nx.push([c1,q]); } segs=nx; } return segs.filter(([p,q])=>q-p>0.01); }
+const nextSt=(si,k)=>k===0?(si+1)%3:(si+2)%3;
+function signTex(txt,sub,arrow){ return textTex(1024,160,(x,W,Ht)=>{ x.fillStyle='#16181c'; x.fillRect(0,0,W,Ht); x.fillStyle=MLINE; x.fillRect(0,0,14,Ht); metroLogo(x,90,Ht/2,46);
+  x.fillStyle='#f4f2ec'; x.textAlign='left'; x.textBaseline='alphabetic'; x.font=`500 64px ${CNF}`; x.fillText(txt,160,84); x.font=`400 30px ${UIF}`; x.fillStyle='rgba(244,242,236,.7)'; x.fillText(sub,162,132);
+  if(arrow){ x.fillStyle='#f4f2ec'; x.font=`500 90px ${UIF}`; x.textAlign='right'; x.fillText(arrow,W-40,112); } }); }
+const MSIGN={};
+function buildMetroStation(si){ const s=METRO[si], m=transitMats(), g=group(Z.metro), ox=s.ox, oz=s.oz, dir=s.dir; s.g=g; COLROOTS.set(g,0);
+  const L=45, CEIL=-1.0, PT=PL_Y+3.6, TL=205;
+  const snM=basic({map:stationName(s),color:lin(1.2,1.2,1.2)});
+  if(!MSIGN.plat){ MSIGN.plat=basic({map:signTex('站台 · 乘车','To Platforms · Line 1','↓'),color:lin(1.3,1.3,1.3)}); MSIGN.exit=basic({map:signTex('出站 · 地面','Way Out · Street','↑'),color:lin(1.3,1.3,1.3)}); }
+  const band=(x,z,w,d,y)=>box(g,w+0.04,0.16,d+0.04,m.line,x,y,z);
+  // ---- platform level ----
+  box(g,2*L,1.4,10.4,m.floor,ox,PL_Y-0.7,oz); addSurface(ox-L,oz-5.2,ox+L,oz+5.2,PL_Y);
+  for(const sd of [-1,1]) planeXZ(g,2*L,0.3,m.yellow,ox,PL_Y+0.004,oz+sd*4.55);
+  for(const sd of [-1,1]){ const tz=oz+sd*TRK, k=sd<0?0:1;
+    box(g,2*TL,0.2,4.4,m.bed,ox,PL_Y-1.5,oz+sd*7.4);
+    for(const rs of [-0.7175,0.7175]){ box(g,2*TL,0.15,0.5,m.conc,ox,PL_Y-1.325,tz+rs); box(g,2*TL,0.15,0.07,m.rail,ox,PL_Y-1.175,tz+rs); }
+    box(g,2*TL,0.1,0.12,m.alu,ox,PL_Y+4.25,tz);                                                          // rigid overhead conductor
+    box(g,2*L,6.0,0.4,m.wall,ox,PL_Y+1.6,oz+sd*9.8);                                                    // trackway wall in the station
+    for(const e of [-1,1]){ box(g,TL-L,6.0,0.4,m.conc,ox+e*(L+TL)/2,PL_Y+1.6,oz+sd*9.8);                // tunnel walls
+      box(g,TL-L,0.08,0.3,m.dark,ox+e*(L+TL)/2,PL_Y+2.2,oz+sd*9.45);                                     // cable tray
+      for(let x=L+6;x<TL-4;x+=12) box(g,0.3,0.1,0.06,m.light,ox+e*x,PL_Y+2.9,oz+sd*9.57); }
+    for(const x of [-36,-18,0,18,36]){ const p=add(g,new THREE.PlaneGeometry(4.4,1.1),snM,ox+x,PL_Y+1.75,oz+sd*9.58,0,sd>0?Math.PI:0,0); p.renderOrder=1; }
+    for(const x of [-27,-9,9,27]) add(g,new THREE.PlaneGeometry(1.5,2.3),m.poster,ox+x,PL_Y+1.35,oz+sd*9.58,0,sd>0?Math.PI:0,0);
+    // platform screen doors: fixed glass between the door openings, sliding leaves in them (instanced, animated)
+    const pz=oz+sd*5.2, cuts=DOORX.map(d=>[ox+d-0.95,ox+d+0.95]);
+    for(const [a,b] of segsMinus(ox-L+0.2,ox+L-0.2,cuts)){ box(g,b-a,2.5,0.03,m.glass,(a+b)/2,PL_Y+1.25,pz); addBox(a,pz-0.06,b,pz+0.06,PL_Y,PL_Y+2.6);
+      for(const e of [a,b]) box(g,0.08,2.5,0.12,m.alu,e,PL_Y+1.25,pz); }
+    for(const d of DOORX) colOn(ox+d-0.95,pz-0.06,ox+d+0.95,pz+0.06,PL_Y,PL_Y+2.6,()=>psdOpen(si,k)<0.7);
+    box(g,2*L,1.1,0.5,m.dark,ox,PL_Y+3.05,pz);                                                           // PSD header
+    box(g,2*L,0.08,0.52,m.line,ox,PL_Y+2.55,pz);
+    const hd=basic({map:textTex(1024,96,(x,W,Ht)=>{ x.fillStyle='#050506'; x.fillRect(0,0,W,Ht); x.fillStyle='#ffb52e'; x.textBaseline='middle'; x.font=`500 50px ${CNF}`; x.textAlign='center';
+      x.fillText(`开往 ${METRO[nextSt(si,k)].n} 方向   To ${METRO[nextSt(si,k)].e}`,W/2,Ht/2+2); ledGrid(x,W,Ht); }),color:lin(1.5,1.5,1.5)});
+    for(const x of [-31.5,-9,13.5,36]) add(g,new THREE.PlaneGeometry(3.2,0.3),hd,ox+x,PL_Y+3.15,pz-sd*0.26,0,sd>0?Math.PI:0,0);
+    // the train's interior floor and, while a train stands here, its walls and seats
+    surfRects([{x0:ox-37.8,x1:ox+37.8,z0:Math.min(tz-1.4,pz),z1:Math.max(tz+1.4,pz)}],PL_Y);
+    const on=()=>mtDocked(si,k), ps=-sd;                                                                 // ps: toward the platform
+    const wz=tz+ps*1.4; for(const [a,b] of segsMinus(ox-37.8,ox+37.8,DOORX.map(d=>[ox+d-0.65,ox+d+0.65]))) colOn(a,wz-0.06,b,wz+0.06,PL_Y,PL_Y+2.4,on);
+    for(const d of DOORX) colOn(ox+d-0.65,wz-0.06,ox+d+0.65,wz+0.06,PL_Y,PL_Y+2.4,()=>mtDocked(si,k)&&MT[k].doors<0.6);
+    colOn(ox-37.8,tz-ps*1.46,ox+37.8,tz-ps*1.34,PL_Y,PL_Y+2.4,on);
+    for(const e of [-1,1]) colOn(ox+e*37.8-0.06,tz-1.4,ox+e*37.8+0.06,tz+1.4,PL_Y,PL_Y+2.4,on);
+    for(const [a,b] of seatSegs()) for(const q of [-1,1]) colOn(ox+a,Math.min(tz+q*0.9,tz+q*1.4),ox+b,Math.max(tz+q*0.9,tz+q*1.4),PL_Y,PL_Y+0.5,on);
+  }
+  // PSD leaves, both tracks: 16 doors x 2 leaves each
+  { const lg=new THREE.BoxGeometry(0.95,2.45,0.025), eg=new THREE.BoxGeometry(0.05,2.45,0.05);
+    s.psdG=new THREE.InstancedMesh(lg,m.glass,64); s.psdE=new THREE.InstancedMesh(eg,m.alu,64); for(const im of [s.psdG,s.psdE]){ im.frustumCulled=false; im.userData.noCast=true; g.add(im); }
+    s.psdLast=[-1,-1]; setPSD(si,0,0); setPSD(si,1,0); }
+  // tunnel centre wall, roof and end caps
+  for(const e of [-1,1]){ box(g,TL-L,6.0,10.4,m.conc,ox+e*(L+TL)/2,PL_Y+1.6,oz); box(g,TL-42,0.4,20.8,m.conc,ox+e*(42+TL)/2,PL_Y+4.8,oz); box(g,0.3,6,20,m.dark,ox+e*TL,PL_Y+1.6,oz); }
+  // platform: suspended ceiling, light lines, columns, benches, end walls, information screens
+  const holes=[{x0:ox-14.2,x1:ox-2.8,z0:oz-2.45,z1:oz+2.45},{x0:ox+2.8,x1:ox+14.2,z0:oz-2.45,z1:oz+2.45}];
+  for(const r of rectsMinus({x0:ox-L,x1:ox+L,z0:oz-5.2,z1:oz+5.2},holes)) box(g,r.x1-r.x0,0.05,r.z1-r.z0,m.ceil,(r.x0+r.x1)/2,PT+0.025,(r.z0+r.z1)/2);
+  for(const z of [-3.1,3.1]) box(g,2*L-2,0.03,0.16,m.light,ox,PT-0.015,oz+z);
+  for(const [a,b] of [[-44,-14.6],[-2.4,2.4],[14.6,44]]) box(g,b-a,0.03,0.16,m.light,ox+(a+b)/2,PT-0.015,oz);
+  box(g,2*L,PL_Y+4.6-PT,10.4,m.dark,ox,(PT+PL_Y+4.6)/2+0.03,oz);                                         // plenum above the ceiling
+  for(const k of [-4,-3,-2,0,2,3,4]) for(const sd of [-1,1]){ const x=ox+k*9, z=oz+sd*3.6; boxMM(g,x-0.3,PL_Y,z-0.3,x+0.3,PT,z+0.3,m.wall); band(x,z,0.6,0.6,PL_Y+2.3); }
+  for(const x of [-31.5,-22.5,22.5,31.5]){ const b=group(g,ox+x,PL_Y,oz); box(b,2.2,0.05,0.46,m.steel,0,0.45,0); box(b,2.2,0.42,0.05,m.steel,0,0.7,0.2); for(const e of [-0.95,0.95]) box(b,0.06,0.45,0.4,m.dark,e,0.225,0); addBox(ox+x-1.1,oz-0.25,ox+x+1.1,oz+0.25,PL_Y,PL_Y+0.46); }
+  for(const e of [-1,1]){ boxMM(g,ox+e*L-0.2,PL_Y,oz-5.2,ox+e*L+0.2,PT,oz+5.2,m.wall); box(g,0.06,2.1,1.0,m.dark,ox+e*(L-0.21),PL_Y+1.05,oz+2.6); }
+  for(const x of [-22,22]){ box(g,1.9,0.62,0.12,m.dark,ox+x,PT-0.95,oz); for(const e of [-0.7,0.7]) box(g,0.03,0.6,0.03,m.alu,ox+x+e,PT-0.35,oz);
+    for(const k of [0,1]){ const sd=k===0?-1:1; add(g,new THREE.PlaneGeometry(1.8,0.52),PIDS.mat[k],ox+x,PT-0.95,oz+sd*0.061,0,sd>0?0:Math.PI,0); } }
+  // stairs up to the concourse (a pair, facing each other across the middle of the platform)
+  for(const e of [-1,1]){ const xb=ox+e*3, xt=ox+e*14;
+    stairs(g,m.floorD,m.yellow,xb,xt,PL_Y,CC_Y,oz-2.2,oz+2.2,false,m.wall);
+    addRamp(Math.min(xb,xt),oz-2.2,Math.max(xb,xt),oz+2.2,'x',e<0?CC_Y:PL_Y,e<0?PL_Y:CC_Y);
+    for(const sd of [-1,1]){ const z=oz+sd*2.3; slab(g,m.glass,xb,PL_Y+0.55,xt,CC_Y+0.55,1.0,z-0.01,z+0.01); slab(g,m.alu,xb,PL_Y+1.07,xt,CC_Y+1.07,0.05,z-0.03,z+0.03);
+      box(g,Math.abs(xt-xb),1.1,0.02,m.glass,(xb+xt)/2,CC_Y+0.55,z); box(g,Math.abs(xt-xb),0.05,0.06,m.alu,(xb+xt)/2,CC_Y+1.1,z);
+      addBox(Math.min(xb,xt),z-0.08,Math.max(xb,xt),z+0.08,PL_Y,CC_Y+1.1); }
+    slab(g,m.alu,xb,PL_Y+0.95,xt,CC_Y+0.95,0.05,oz-0.03,oz+0.03);                                         // centre handrail
+    box(g,0.02,1.1,4.6,m.glass,xb,CC_Y+0.55,oz); box(g,0.06,0.05,4.6,m.alu,xb,CC_Y+1.1,oz); addBox(xb-0.08,oz-2.3,xb+0.08,oz+2.3,CC_Y,CC_Y+1.1);
+    addBox(xt-0.1,oz-2.3,xt+0.1,oz+2.3,PL_Y,CC_Y-0.7);
+    add(g,new THREE.PlaneGeometry(3.4,0.53),MSIGN.plat,xt-e*0.3,CEIL-0.7,oz,0,e<0?-Math.PI/2:Math.PI/2,0); }
+  // ---- concourse ----
+  const ch=[{x0:ox-14,x1:ox-3,z0:oz-2.3,z1:oz+2.3},{x0:ox+3,x1:ox+14,z0:oz-2.3,z1:oz+2.3}];
+  for(const r of rectsMinus({x0:ox-42,x1:ox+42,z0:oz-12,z1:oz+12},ch)){ box(g,r.x1-r.x0,1.0,r.z1-r.z0,m.floor,(r.x0+r.x1)/2,CC_Y-0.5,(r.z0+r.z1)/2); addSurface(r.x0,r.z0,r.x1,r.z1,CC_Y); }
+  for(const sd of [-1,1]){ boxMM(g,ox-42.4,CC_Y,oz+sd*12-0.2,ox+42.4,CEIL,oz+sd*12+0.2,m.wall); box(g,84.8,0.16,0.02,m.line,ox,CC_Y+2.6,oz+sd*11.79); }
+  for(const e of [-1,1]){ const x=ox+e*42.2; if(e===dir){ for(const sd of [-1,1]) boxMM(g,x-0.2,CC_Y,sd<0?oz-12:oz+2.6,x+0.2,CEIL,sd<0?oz-2.6:oz+12,m.wall); box(g,0.4,0.5,5.2,m.wall,x,CEIL-0.25,oz); }
+    else { boxMM(g,x-0.2,CC_Y,oz-12,x+0.2,CEIL,oz+12,m.wall); add(g,new THREE.PlaneGeometry(8,2),snM,x-e*0.21,CC_Y+2.3,oz,0,-e*Math.PI/2,0); } }
+  box(g,84.8,0.4,24.8,m.ceil,ox,CEIL+0.2,oz);
+  for(const z of [-8.5,-3.5,3.5,8.5]) box(g,82,0.03,0.18,m.light,ox,CEIL-0.015,oz+z);
+  for(let k=-4;k<=4;k++) for(const sd of [-1,1]){ const x=ox+k*9, z=oz+sd*6.3; if(Math.abs(x-s.gx)<1.6) continue; boxMM(g,x-0.35,CC_Y,z-0.35,x+0.35,CEIL,z+0.35,m.wall); band(x,z,0.7,0.7,CC_Y+2.6); }
+  // fare gates, glass barrier, ticket machines, service centre
+  { const gx=s.gx; for(let k=0;k<10;k++){ const zc=oz-5.49+k*1.22; boxMM(g,gx-0.8,CC_Y,zc-0.13,gx+0.8,CC_Y+1.0,zc+0.13,m.steel); box(g,1.6,0.02,0.27,m.dark,gx,CC_Y+1.01,zc);
+      for(const e of [-1,1]) box(g,0.02,0.07,0.1,e===dir?basic({color:lin(0.2,3,0.8)}):basic({color:lin(3,0.25,0.15)}),gx+e*0.81,CC_Y+0.9,zc); }
+    s.flaps=new THREE.InstancedMesh(new THREE.BoxGeometry(0.02,0.55,0.38),m.glass,18); s.flaps.frustumCulled=false; g.add(s.flaps); s.flapK=new Array(9).fill(-1); setFlaps(si,true);
+    for(const [a,b] of [[oz-12,oz-5.62],[oz+5.62,oz+12]]){ box(g,0.03,1.15,b-a,m.glass,gx,CC_Y+0.58,(a+b)/2); box(g,0.06,0.05,b-a,m.alu,gx,CC_Y+1.15,(a+b)/2); addBox(gx-0.08,a,gx+0.08,b,CC_Y,CC_Y+1.2); }
+    for(let i=0;i<6;i++){ const x=gx+dir*(4+i*1.35), z=oz-11.6; boxMM(g,x-0.5,CC_Y,z-0.3,x+0.5,CC_Y+1.85,z+0.3,m.alu); add(g,new THREE.PlaneGeometry(0.62,0.42),m.screen,x,CC_Y+1.25,z+0.31); box(g,1.0,0.14,0.62,m.line,x,CC_Y+1.93,z); }
+    const sx=gx+dir*6; box(g,0.04,1.4,3.2,m.glass,sx,CC_Y+1.9,oz+10.4); boxMM(g,sx-0.3,CC_Y,oz+8.8,sx+0.3,CC_Y+1.1,oz+12,m.steel); box(g,3.2,0.5,3.4,m.dark,sx+dir*1.6,CC_Y+2.85,oz+10.3);
+    add(g,new THREE.PlaneGeometry(3.2,0.5),basic({map:textTex(512,80,(x,W,Ht)=>{ x.fillStyle='#16181c'; x.fillRect(0,0,W,Ht); x.fillStyle='#f4f2ec'; x.font=`500 40px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('客服中心  Service',W/2,Ht/2+2); }),color:lin(1.3,1.3,1.3)}),sx-dir*0.02,CC_Y+2.85,oz+10.3,0,-dir*Math.PI/2,0);
+    add(g,new THREE.PlaneGeometry(3.4,0.53),MSIGN.exit,gx+dir*1.5,CEIL-0.7,oz-7.5,0,dir>0?-Math.PI/2:Math.PI/2,0);
+    add(g,new THREE.PlaneGeometry(3.4,0.53),MSIGN.plat,gx+dir*1.5,CEIL-0.7,oz+7.5,0,dir>0?Math.PI/2:-Math.PI/2,0); }
+  // ---- entrance stairs up to the street ----
+  { const a=Math.min(s.sx0,s.sx1), b=Math.max(s.sx0,s.sx1);
+    stairs(g,m.floorD,m.yellow,s.sx0,s.sx1,CC_Y,0.15,oz-2.5,oz+2.5,false,m.wall); addRamp(a,oz-2.5,b,oz+2.5,'x',dir>0?CC_Y:0.15,dir>0?0.15:CC_Y);
+    for(const sd of [-1,1]){ const z=oz+sd*2.8; box(g,b-a,5.8,0.4,m.wall,(a+b)/2,CC_Y+2.6,z); addBox(a,z-0.2,b,z+0.2,CC_Y,1.3);
+      slab(g,m.alu,s.sx0,CC_Y+0.9,s.sx1,1.05,0.06,z-sd*0.25,z-sd*0.18); box(g,b-a,0.12,0.02,m.line,(a+b)/2,-0.9,z-sd*0.205); }
+    LIGHTSRC.push({p:[s.sx0+dir*5,oz],y:-1.2,c:[0.95,0.97,1],i:22,zone:'metro'}); }
+  // ---- lights ----
+  for(const x of [-36,-18,0,18,36]) LIGHTSRC.push({p:[ox+x,oz],y:PT-0.3,c:[0.95,0.97,1],i:20,zone:'metro'});
+  for(const x of [-30,-10,10,30]) for(const z of [-6,6]) LIGHTSRC.push({p:[ox+x,oz+z],y:CEIL-0.4,c:[0.95,0.97,1],i:20,zone:'metro'});
+  // ---- up top: a glass pavilion in the garden, a railed opening inside the station halls ----
+  const xa=s.sx0-dir*0.6, xe=s.sx1+dir*2.6;
+  if(s.id==='garden'){ const g2=Z.district, x0=Math.min(xa,xe), x1=Math.max(xa,xe);
+    for(const r of rectsMinus({x0,x1,z0:oz-3.2,z1:oz+3.2},[s.hole])){ box(g2,r.x1-r.x0,0.15,r.z1-r.z0,m.floorD,(r.x0+r.x1)/2,0.075,(r.z0+r.z1)/2); addSurface(r.x0,r.z0,r.x1,r.z1,0.15); }
+    for(const sd of [-1,1]){ const z=oz+sd*3.05; box(g2,x1-x0,3.2,0.03,m.glass,(x0+x1)/2,1.75,z); addBox(x0,z-0.1,x1,z+0.1,0,3.3);
+      for(let x=x0;x<=x1+0.01;x+=(x1-x0)/5) box(g2,0.07,3.2,0.07,m.dark,x,1.75,z); }
+    box(g2,0.3,3.2,6.4,m.stone,xa-dir*0.15,1.75,oz); addBox(xa-0.3,oz-3.2,xa+0.3,oz+3.2,0,3.3);
+    box(g2,x1-x0+1.2,0.28,7.2,m.dark,(x0+x1)/2+dir*0.4,3.49,oz); box(g2,0.05,0.06,7.2,m.light,xe+dir*1.0,3.37,oz);
+    add(g2,new THREE.PlaneGeometry(4.4,1.1),snM,xe+dir*1.03,4.2,oz,0,dir>0?Math.PI/2:-Math.PI/2,0); box(g2,0.2,1.2,4.6,m.dark,xe+dir*0.92,4.2,oz);
+    const px=xe+dir*1.6, pz=oz+4.4; box(g2,0.7,4.4,0.7,m.dark,px,2.2,pz); addBox(px-0.35,pz-0.35,px+0.35,pz+0.35,0,4.4);
+    for(const sd of [-1,1]) add(g2,new THREE.PlaneGeometry(0.62,0.62),m.logo,px+sd*0.36,3.8,pz,0,sd*Math.PI/2,0);
+    LIGHTSRC.push({p:[s.sx1+dir*1.5,oz],y:2.3,c:[0.95,0.97,1],i:5,zone:'street'}); }
+  else { const g2=s.id==='hsr'?Z.hsr:Z.air, a=Math.min(s.sx0,s.sx1)-0.1, b=Math.max(s.sx0,s.sx1)+0.1;
+    for(const sd of [-1,1]){ const z=oz+sd*2.72; box(g2,b-a,1.1,0.03,m.glass,(a+b)/2,0.7,z); box(g2,b-a,0.06,0.08,m.alu,(a+b)/2,1.26,z); }
+    box(g2,0.03,1.1,5.5,m.glass,s.sx0-dir*0.1,0.7,oz); box(g2,0.08,0.06,5.5,m.alu,s.sx0-dir*0.1,1.26,oz); addBox(s.sx0-dir*0.1-0.12,oz-2.8,s.sx0-dir*0.1+0.12,oz+2.8,0,1.3);
+    const px=s.sx1+dir*1.2, pz=oz+3.6; box(g2,0.6,3.4,0.6,m.dark,px,1.85,pz); addBox(px-0.3,pz-0.3,px+0.3,pz+0.3,0,3.5); for(const sd of [-1,1]) add(g2,new THREE.PlaneGeometry(0.54,0.54),m.logo,px+sd*0.31,3.1,pz,0,sd*Math.PI/2,0);
+    add(g2,new THREE.PlaneGeometry(3.4,0.53),MSIGN.plat,s.sx1+dir*0.56,4.2,oz,0,dir>0?Math.PI/2:-Math.PI/2,0); box(g2,0.1,0.6,3.5,m.dark,s.sx1+dir*0.5,4.2,oz); }
+  bake(g);
+}
+function seatSegs(){ const out=[]; for(const c of CARC) for(const [a,b] of [[-9.6,-7.75],[-6.35,-3.05],[-1.65,1.65],[3.05,6.35],[7.75,9.6]]){ const p=Math.max(c+a,-37.7), q=Math.min(c+b,37.7); if(q-p>0.3) out.push([p,q]); } return out; }
+function setPSD(si,k,o){ const s=METRO[si]; if(s.psdLast[k]===o) return; s.psdLast[k]=o; const m4=new THREE.Matrix4(), sd=k===0?-1:1, pz=s.oz+sd*(5.2-0.06);
+  DOORX.forEach((d,i)=>{ for(const e of [-1,1]){ const x=s.ox+d+e*(0.475+0.93*o), n=k*32+i*2+(e>0?1:0); m4.makeTranslation(x,PL_Y+1.25,pz); s.psdG.setMatrixAt(n,m4); m4.makeTranslation(x-e*0.45,PL_Y+1.25,pz); s.psdE.setMatrixAt(n,m4); } });
+  s.psdG.instanceMatrix.needsUpdate=true; s.psdE.instanceMatrix.needsUpdate=true; }
+function setFlaps(si,force){ const s=METRO[si], m4=new THREE.Matrix4(); let ch=false;
+  for(let k=0;k<9;k++){ const zc=s.oz-5.49+k*1.22+0.61, near=!force&&Math.abs(P.x-s.gx)<1.9&&Math.abs(P.z-zc)<0.62&&Math.abs(P.y-CC_Y)<1; const o=near?1:0; if(!force&&s.flapK[k]===o) continue; s.flapK[k]=o; ch=true;
+    for(const e of [-1,1]){ m4.makeTranslation(s.gx,CC_Y+0.72,zc+e*(o?0.62:0.23)); s.flaps.setMatrixAt(k*2+(e>0?1:0),m4); } }
+  if(ch) s.flaps.instanceMatrix.needsUpdate=true; }
+
+/* ---------- metro trains: four cars, open gangways, walk-through interiors ---------- */
+const TR={};
+function trainMats(){ if(TR.done) return TR; TR.done=true;
+  TR.body=std({color:'#d5d8dd',metalness:0.85,roughness:0.3,envMapIntensity:1.0});
+  TR.line=std({color:MLINE,roughness:0.3,envMapIntensity:0.8});
+  TR.win=std({color:'#0e1318',metalness:0.2,roughness:0.04,transparent:true,opacity:0.3,depthWrite:false,envMapIntensity:1.6});
+  TR.cab=std({color:'#07090c',metalness:0.6,roughness:0.06,envMapIntensity:1.5});
+  TR.floor=std({color:'#6a6d72',roughness:0.85,envMapIntensity:0.3});
+  TR.int=std({color:'#ebe9e3',roughness:0.45,envMapIntensity:0.6});
+  TR.seat=std({color:'#c3c6cb',metalness:0.9,roughness:0.22,envMapIntensity:1.1});
+  TR.dark=std({color:'#1a1b1e',roughness:0.7,metalness:0.3});
+  TR.light=basic({color:lin(2.1,2.1,2.0)}); TR.head=basic({color:lin(10,10,9)}); TR.tail=basic({color:lin(5,0.2,0.1)});
+  TR.led=basic({map:textTex(512,64,(x,W,Ht)=>{ x.fillStyle='#050506'; x.fillRect(0,0,W,Ht); x.fillStyle='#ffb52e'; x.font=`500 36px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('1号线 · 环线  LINE 1',W/2,Ht/2+2); ledGrid(x,W,Ht); }),color:lin(1.8,1.8,1.8)});
+  TR.map=basic({map:textTex(1024,128,(x,W,Ht)=>{ x.fillStyle='#f6f5f1'; x.fillRect(0,0,W,Ht); x.fillStyle=MLINE; x.fillRect(80,58,W-160,12); metroLogo(x,40,64,26);
+    METRO.forEach((s,i)=>{ const px=180+i*330; x.fillStyle='#fff'; x.strokeStyle=MLINE; x.lineWidth=6; x.beginPath(); x.arc(px,64,14,0,TAU); x.fill(); x.stroke(); x.fillStyle='#1b1d22'; x.font=`500 30px ${CNF}`; x.textAlign='center'; x.fillText(s.n,px,40); x.font=`400 16px ${UIF}`; x.fillStyle='#555'; x.fillText(s.e,px,104); }); }),color:lin(1.1,1.1,1.1)});
+  return TR; }
+function metroTrain(){ const t=trainMats(), g=new THREE.Group(), HL=39, E=37.8;
+  const cuts=DOORX.map(d=>[d-0.65,d+0.65]);
+  for(const sd of [-1,1]){ const zo=sd*1.38;
+    for(const [a,b] of segsMinus(-HL,HL,cuts)){ const w=b-a, cx=(a+b)/2; box(g,w,1.33,0.08,t.body,cx,0.285,zo); box(g,w,0.14,0.012,t.line,cx,0.72,sd*1.425);
+      const nW=Math.max(1,Math.round(w/2.6)); for(let i=0;i<=nW;i++){ const px=clamp(a+i*(w/nW),a+0.07,b-0.07); box(g,0.14,1.0,0.08,t.body,px,1.45,zo); } box(g,w,0.96,0.02,t.win,cx,1.45,zo); }
+    box(g,2*HL,0.48,0.08,t.body,0,2.19,zo); box(g,2*HL,0.06,0.05,t.dark,0,-0.4,sd*1.36);
+    for(const xj of [-19.5,0,19.5]) box(g,0.22,2.85,0.03,t.dark,xj,1.0,sd*1.43);
+    for(const d of DOORX) add(g,new THREE.PlaneGeometry(1.1,0.14),t.map,d,2.12,sd*1.33,0,sd>0?Math.PI:0,0); }
+  box(g,2*HL+0.2,0.18,2.5,t.body,0,2.52,0); for(const sd of [-1,1]) add(g,new THREE.CylinderGeometry(0.2,0.2,2*HL,10),t.body,0,2.42,sd*1.22,0,0,Math.PI/2);
+  for(const c of CARC){ for(const e of [-5,5]) box(g,2.4,0.34,1.6,t.body,c+e,2.78,0);
+    for(const bx of [c-6.6,c+6.6]){ box(g,3.2,0.34,2.2,t.dark,bx,-0.62,0); for(const wx of [bx-1.05,bx+1.05]) for(const wz of [-0.7175,0.7175]) add(g,new THREE.CylinderGeometry(0.42,0.42,0.12,18),t.dark,wx,-0.68,wz,Math.PI/2,0,0); }
+    box(g,8,0.42,2.3,t.dark,c,-0.62,0); }
+  box(g,2*E,0.12,2.76,t.floor,0,-0.06,0); box(g,2*E,0.06,2.72,t.int,0,2.33,0); for(const z of [-0.55,0.55]) box(g,2*E,0.03,0.18,t.light,0,2.29,z);
+  for(const e of [-1,1]){ box(g,0.06,2.3,2.72,t.int,e*E,1.15,0); box(g,0.04,1.9,0.8,t.dark,e*(E-0.035),0.95,0);
+    box(g,0.2,2.85,2.84,t.body,e*39.1,1.0,0); box(g,0.02,1.15,2.3,t.cab,e*39.21,1.62,0); box(g,0.02,0.2,2.5,t.line,e*39.21,0.7,0);
+    add(g,new THREE.PlaneGeometry(1.6,0.2),t.led,e*39.215,2.32,0,0,e*Math.PI/2,0);
+    for(const sd of [-1,1]) box(g,0.03,0.14,0.34,e>0?t.head:t.tail,e*39.22,0.42,sd*0.95); }
+  for(const [a,b] of seatSegs()) for(const sd of [-1,1]){ const cx=(a+b)/2, w=b-a; box(g,w,0.06,0.44,t.seat,cx,0.45,sd*1.12); box(g,w,0.42,0.34,t.dark,cx,0.21,sd*1.17); box(g,w,0.5,0.05,t.seat,cx,0.72,sd*1.33); }
+  for(const d of DOORX) for(const sd of [-1,1]) for(const e of [-0.8,0.8]) add(g,new THREE.CylinderGeometry(0.022,0.022,2.3,10),M.chrome,d+e,1.15,sd*0.92);
+  for(const sd of [-1,1]) add(g,new THREE.CylinderGeometry(0.016,0.016,2*E,8),M.chrome,0,1.93,sd*0.72,0,0,Math.PI/2);
+  for(const xj of [-19.5,0,19.5]){ box(g,0.3,0.25,2.72,t.dark,xj,2.18,0); for(const sd of [-1,1]) box(g,0.3,2.05,0.36,t.dark,xj,1.03,sd*1.18); }
+  bake(g); g.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.receiveShadow=true; o.userData.noCast=true; } });
+  const lg=new THREE.BoxGeometry(0.66,1.95,0.05), wg=new THREE.BoxGeometry(0.42,0.95,0.058); wg.translate(0,0.45,0);
+  const DP=new THREE.InstancedMesh(lg,t.body,64), DW=new THREE.InstancedMesh(wg,t.win,64); for(const im of [DP,DW]){ im.frustumCulled=false; im.userData.noCast=true; g.add(im); }
+  g.userData.dyn=true; g.visible=false; return {g,DP,DW,last:-1}; }
+function setTrainDoors(T,o){ if(T.m.last===o) return; T.m.last=o; const m4=new THREE.Matrix4();
+  DOORX.forEach((d,i)=>{ for(const sd of [-1,1]){ const oo=sd>0?o:0; for(const e of [-1,1]){ const n=i*4+(sd>0?2:0)+(e>0?1:0); m4.makeTranslation(d+e*(0.33+0.64*oo),0.975,sd*(1.43+0.05*oo)); T.m.DP.setMatrixAt(n,m4); T.m.DW.setMatrixAt(n,m4); } } });
+  T.m.DP.instanceMatrix.needsUpdate=true; T.m.DW.instanceMatrix.needsUpdate=true; }
+// PIDS: two screens' worth of text (one per direction), redrawn once a second
+const PIDS={mat:[],cv:[],t:0};
+for(let k=0;k<2;k++){ const [c,x]=mkCanvas(512,148); const tex=toTex(c,1,1,true); tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping; PIDS.cv.push({c,x,tex}); PIDS.mat.push(basic({map:tex,color:lin(1.3,1.3,1.3)})); }
+function drawPIDS(si){ for(let k=0;k<2;k++){ const {x,tex}=PIDS.cv[k], T=MT[k]; let eta;
+    if(T.st===si&&(T.phase==='open'||T.phase==='dwell')) eta='列车停靠中 · 请上车'; else if(T.st===si&&T.phase==='close') eta='车门即将关闭'; else if(T.st===si&&T.phase==='arrive') eta='列车即将进站'; else { const sec=Math.max(0,Math.round((T.phase==='wait'?T.t:30)+19)); eta=sec>=60?`${Math.floor(sec/60)} 分 ${sec%60} 秒`:`${sec} 秒`; }
+    x.fillStyle='#0a1a33'; x.fillRect(0,0,512,148); x.fillStyle=MLINE; x.fillRect(0,0,512,30); x.fillStyle='#fff'; x.font=`500 20px ${CNF}`; x.textAlign='left'; x.textBaseline='middle'; x.fillText('1号线  下一班列车 Next Train',12,16);
+    x.font=`500 30px ${CNF}`; x.fillText(`开往 ${METRO[nextSt(si,k)].n}`,14,66); x.fillStyle='#ffd166'; x.font=`500 34px ${CNF}`; x.fillText(eta,14,114);
+    x.fillStyle='rgba(255,255,255,.5)'; x.font=`400 18px ${UIF}`; x.textAlign='right'; x.fillText(worldClock(),500,66); tex.needsUpdate=true; } }
+/* ---------- links out of the district: the station road south, the airport road east ---------- */
+const AIRLOT={x0:300,x1:440,z0:-170,z1:67.7};
+function fenceLine(g,x0,z0,x1,z1,h=1.2){ const m=transitMats(), L=Math.hypot(x1-x0,z1-z0), a=Math.atan2(z1-z0,x1-x0), n=Math.max(1,Math.round(L/2.5));
+  for(let i=0;i<=n;i++){ const t=i/n; box(g,0.07,h,0.07,m.dark,x0+(x1-x0)*t,h/2,z0+(z1-z0)*t); }
+  for(const y of [h-0.05,h*0.5]){ const b=box(g,L,0.05,0.04,m.alu,(x0+x1)/2,y,(z0+z1)/2); b.rotation.y=-a; }
+  addBox(Math.min(x0,x1)-0.1,Math.min(z0,z1)-0.1,Math.max(x0,x1)+0.1,Math.max(z0,z1)+0.1,0,h+0.2); }
+function walkBox(g,x0,z0,x1,z1,mat=M.pavers){ box(g,x1-x0,0.15,z1-z0,mat,(x0+x1)/2,0.075,(z0+z1)/2); addSurface(x0,z0,x1,z1,0.15); }
+function buildLinks(){ const g=Z.links, m=transitMats(), lamps=[];
+  const road=(x0,z0,x1,z1)=>{ planeXZ(g,x1-x0,z1-z0,M.asphalt,(x0+x1)/2,0.02,(z0+z1)/2); MAP.roads.push({x0,z0,x1,z1}); };
+  // south: East Bank Road carries on to the railway station
+  road(163,-366,177,-300); for(const [a,b] of [[159,163],[177,181]]) walkBox(g,a,-352,b,-300);
+  for(let z=-306;z>-352;z-=9) planeXZ(g,0.14,4.5,M.paint,170,0.03,z);
+  fenceLine(g,158.8,-352,158.8,-300); fenceLine(g,181.2,-352,181.2,-300);
+  for(let z=-310;z>-352;z-=24) for(const x of [160,180]) lamps.push([x,z]);
+  // east: the avenue becomes the airport road, then the terminal's kerbside lane and the car park
+  road(300,72,452,88); road(440,-170,464,92);
+  for(const [a,b] of [[68,72],[88,92]]) walkBox(g,300,a,440,b);
+  for(let x=306;x<440;x+=9) planeXZ(g,4.5,0.14,M.paint,x,0.03,80); for(let z=84;z>-165;z-=9) planeXZ(g,0.14,4.5,M.paint,452,0.03,z);
+  walkBox(g,464,-170,470,92);
+  fenceLine(g,300,92.3,470.3,92.3); fenceLine(g,470.3,92.3,470.3,60); fenceLine(g,470.3,-140,470.3,-170.3); fenceLine(g,300,-170.3,470.3,-170.3);
+  // car park: asphalt, bay lines, lamps (the parked cars come from buildCars)
+  planeXZ(g,AIRLOT.x1-AIRLOT.x0,AIRLOT.z1-AIRLOT.z0,M.asphalt,(AIRLOT.x0+AIRLOT.x1)/2,0.02,(AIRLOT.z0+AIRLOT.z1)/2); MAP.roads.push({...AIRLOT});
+  fenceLine(g,300,67.7,440,67.7,0.9);
+  for(const zc of LOTROWS) for(let k=0;k<=44;k++) planeXZ(g,0.12,5.2,M.paint,310.65+k*2.7,0.03,zc);
+  for(let k=0;k<8;k++) planeXZ(g,118.8,0.12,M.paint,370.05,0.03,-160+k*28+2.7);
+  for(const k of [0,2,4,6]) for(const x of [330,370,410]) lamps.push([x,-160+16.7+k*28]);
+  const tops=[]; for(const [x,z] of lamps){ tops.push(...lampPost(g,x,z)); addCircle(x,z,0.3); LIGHTSRC.push({p:[x,z],y:4.6,c:[1,0.72,0.42],i:16,kind:'lamp'},{p:[x,z],y:5.0,c:[1,0.72,0.42],i:26,kind:'lamp',spot:true,ang:1.25}); }
+  D.lampGlowC=glowSprites(g,tops,lin(2.4,1.6,0.8),2.6);
+  // signs over the roads
+  const gant=(x,z,ry,txt,sub)=>{ const b=group(g,x,0,z,ry); for(const e of [-8,8]) box(b,0.35,6.6,0.35,m.dark,e,3.3,0); box(b,16.5,0.5,0.4,m.dark,0,6.4,0);
+    add(b,new THREE.PlaneGeometry(9,1.8),basic({map:textTex(1024,200,(x2,W,Ht)=>{ x2.fillStyle='#0f5a34'; x2.fillRect(0,0,W,Ht); x2.strokeStyle='#fff'; x2.lineWidth=6; x2.strokeRect(10,10,W-20,Ht-20); x2.fillStyle='#fff'; x2.textAlign='center'; x2.font=`500 78px ${CNF}`; x2.fillText(txt,W/2,96); x2.font=`500 40px ${UIF}`; x2.fillText(sub,W/2,160); }),color:lin(1.1,1.1,1.1)}),0,5.4,0.22); };
+  gant(170,-318,Math.PI,'澜城南站  高铁  →','LANCHENG SOUTH RAILWAY STATION'); gant(330,80,-Math.PI/2,'国际机场  ✈','INTERNATIONAL AIRPORT');
+}
+const LOTROWS=[]; for(let k=0;k<8;k++) LOTROWS.push(-160+k*28,-160+k*28+5.4);
+
+/* ---------- the high-speed rail station ---------- */
+const CRH={};
+function crhMats(){ if(CRH.done) return CRH; CRH.done=true;
+  const wt=textTex(128,96,(x,W,Ht)=>{ const gr=x.createLinearGradient(0,0,0,Ht); gr.addColorStop(0,'#fff6e2'); gr.addColorStop(0.35,'#c9c3b4'); gr.addColorStop(1,'#6e6a62'); x.fillStyle=gr; x.fillRect(0,0,W,Ht);
+    x.fillStyle='rgba(40,48,70,.85)'; for(const px of [8,70]){ x.beginPath(); x.moveTo(px,Ht); x.lineTo(px,48); x.quadraticCurveTo(px+2,30,px+22,30); x.quadraticCurveTo(px+44,30,px+46,48); x.lineTo(px+46,Ht); x.fill(); x.fillStyle='rgba(235,235,230,.9)'; x.fillRect(px+8,34,30,8); x.fillStyle='rgba(40,48,70,.85)'; }
+    x.fillStyle='rgba(0,0,0,.25)'; x.fillRect(0,0,W,6); x.fillRect(0,Ht-6,W,6); });
+  CRH.body=std({color:'#f3f3ef',roughness:0.22,metalness:0.1,envMapIntensity:0.9});
+  CRH.blue=std({color:'#1d4c95',roughness:0.3,envMapIntensity:0.7}); CRH.gold=std({color:'#c9a86a',roughness:0.3,metalness:0.6});
+  CRH.win=std({color:'#1a1d22',map:wt,emissive:'#ffffff',emissiveMap:wt,emissiveIntensity:1,roughness:0.08,metalness:0.2,envMapIntensity:1.4});
+  CRH.glass=std({color:'#05070a',roughness:0.05,metalness:0.7,envMapIntensity:1.6});
+  CRH.dark=std({color:'#202226',roughness:0.7,metalness:0.3}); CRH.vest=std({color:'#cfcac0',roughness:0.5,emissive:lin(0.5,0.47,0.42)});
+  CRH.head=basic({color:lin(10,10,9)}); CRH.tail=basic({color:lin(6,0.25,0.12)});
+  return CRH; }
+const CRH_RING=[[0,0.62],[1.25,0.62],[1.52,0.8],[1.66,1.2],[1.69,1.8],[1.68,2.5],[1.6,3.05],[1.44,3.5],[1.12,3.8],[0.6,3.95],[0,3.98]];
+function crhRing(){ const r=CRH_RING, out=[...r]; for(let i=r.length-2;i>0;i--) out.push([-r[i][0],r[i][1]]); return out; }
+function crhNose(front){ // lofted nose: the cross-section narrows and drops to a point over 11 m
+  const ring=crhRing(), R=ring.length, N=26, Ln=11, P=[], bodyIdx=[], glassIdx=[];
+  for(let i=0;i<N;i++){ const t=i/(N-1), w=Math.pow(Math.max(0,1-Math.pow(t,2.2)),0.55), yt=1.05+2.93*Math.pow(Math.max(0,1-Math.pow(t,1.5)),1.2), yb=0.62+0.3*t*t;
+    for(const [z,y] of ring){ const yy=yb+(y-0.62)*(yt-yb)/(3.98-0.62); P.push((front?1:-1)*(89+t*Ln),yy,z*w); } }
+  for(let i=0;i<N-1;i++){ const tm=(i+0.5)/(N-1); for(let j=0;j<R;j++){ const j2=(j+1)%R, a=i*R+j, b=i*R+j2, c=(i+1)*R+j, d=(i+1)*R+j2;
+      const ym=(ring[j][1]+ring[j2][1])/2, glass=tm>0.17&&tm<0.37&&ym>2.9, arr=glass?glassIdx:bodyIdx;
+      if(front) arr.push(a,c,b,b,c,d); else arr.push(a,b,c,b,d,c); } }
+  const mk=idx=>{ const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); g.setIndex(idx); g.computeVertexNormals(); return g.toNonIndexed(); };
+  return [mk(bodyIdx),mk(glassIdx)]; }
+function crhTrain(){ const t=crhMats(), g=new THREE.Group(); const shape=new THREE.Shape(crhRing().map(([z,y])=>new THREE.Vector2(z,y)));
+  const seg=(a,b)=>{ const e=new THREE.ExtrudeGeometry(shape,{depth:b-a,bevelEnabled:false,curveSegments:1}); e.rotateY(Math.PI/2); e.translate(a,0,0); g.add(new THREE.Mesh(e,t.body)); };
+  const doors=[];
+  for(let i=0;i<8;i++){ const c=-87.5+25*i, a=i===0?-89:c-12.4, b=i===7?89:c+12.4; seg(a,b);
+    for(const sd of [-1,1]){ for(let w=0;w<12;w++){ const x=c+(w-5.5)*1.72; if(x<a+2.2||x>b-2.2||Math.abs(x-c)>10.2) continue; box(g,1.22,0.7,0.03,t.win,x,2.36,sd*1.69); }
+      box(g,Math.min(b,88)-Math.max(a,-88),0.16,0.02,t.blue,(Math.min(b,88)+Math.max(a,-88))/2,1.62,sd*1.695); box(g,Math.min(b,88)-Math.max(a,-88),0.04,0.02,t.gold,(Math.min(b,88)+Math.max(a,-88))/2,1.78,sd*1.695);
+      for(const dx of [-11,11]){ const x=c+dx; if(x<a+0.6||x>b-0.6) continue; box(g,1.04,2.02,0.02,sd>0?t.vest:t.dark,x,2.26,sd*1.69); if(sd>0) doors.push(x); } }
+    for(const bx of [c-9,c+9]){ if(bx<a+1||bx>b-1) continue; box(g,3.4,0.42,2.3,t.dark,bx,0.42,0); for(const wx of [bx-1.25,bx+1.25]) for(const wz of [-0.7175,0.7175]) add(g,new THREE.CylinderGeometry(0.43,0.43,0.14,18),t.dark,wx,0.43,wz,Math.PI/2,0,0); }
+    box(g,Math.max(1,b-a-8),0.3,2.8,t.dark,c,0.5,0);
+    if(i<7) box(g,0.5,3.2,2.9,t.dark,c+12.5,2.2,0);
+    if(i===2||i===5){ const px=c-4; box(g,1.6,0.25,1.0,t.dark,px,4.1,0); const a1=box(g,2.2,0.07,0.07,t.dark,px+0.6,4.55,0); a1.rotation.z=0.45; const a2=box(g,2.0,0.06,0.06,t.dark,px+0.6,5.25,0); a2.rotation.z=-0.55; box(g,0.08,0.05,1.9,t.dark,px-0.2,5.62,0); } }
+  for(const front of [true,false]){ const [nb,ng]=crhNose(front); g.add(new THREE.Mesh(nb,t.body)); g.add(new THREE.Mesh(ng,t.glass)); const e=front?1:-1;
+    for(const sd of [-1,1]) box(g,0.5,0.1,0.3,front?t.head:t.tail,e*97.2,1.2,sd*0.98); box(g,4,0.12,0.02,t.blue,e*91,1.62,1.68); box(g,4,0.12,0.02,t.blue,e*91,1.62,-1.68); }
+  bake(g); g.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.receiveShadow=true; o.userData.noCast=true; } });
+  const DL=new THREE.InstancedMesh(new THREE.BoxGeometry(0.92,1.9,0.05),t.body,doors.length); DL.frustumCulled=false; DL.userData.noCast=true; g.add(DL);
+  g.userData.dyn=true; return {g,DL,doors,last:-1}; }
+function setCrhDoors(tr,o){ if(tr.m.last===o||!tr.m.DL) return; tr.m.last=o; const m4=new THREE.Matrix4(); tr.m.doors.forEach((x,i)=>{ m4.makeTranslation(x+0.94*o,2.22,1.71+0.05*o); tr.m.DL.setMatrixAt(i,m4); }); tr.m.DL.instanceMatrix.needsUpdate=true; }
+function boardTex(){ return textTex(1024,400,(x,W,Ht)=>{ x.fillStyle='#050608'; x.fillRect(0,0,W,Ht); x.fillStyle='#e8392b'; x.fillRect(0,0,W,54); x.fillStyle='#fff'; x.font=`500 34px ${CNF}`; x.textBaseline='middle';
+  const cols=[24,190,430,590,760]; ['车次','终到站','开点','检票口','状态'].forEach((h,i)=>{ x.textAlign='left'; x.fillText(h,cols[i],28); });
+  const rows=[['G1024','上海虹桥','14:32','A1','正在检票','#6bf07a'],['G7','北京南','14:45','A2','候车','#ffc23a'],['D3102','杭州东','14:58','A1','候车','#ffc23a'],['G86','广州南','15:10','A3','候车','#ffc23a'],['G1880','南京南','15:24','A2','候车','#ffc23a'],['C2011','苏州','15:31','A1','晚点 8 分','#ff6b5a']];
+  rows.forEach((r,j)=>{ const y=94+j*52; x.fillStyle='#ffb52e'; x.font=`500 34px ${UIF}`; x.fillText(r[0],cols[0],y); x.font=`500 34px ${CNF}`; x.fillText(r[1],cols[1],y); x.font=`500 34px ${UIF}`; x.fillText(r[2],cols[2],y); x.fillText(r[3],cols[3],y); x.fillStyle=r[5]; x.font=`500 34px ${CNF}`; x.fillText(r[4],cols[4],y); });
+  ledGrid(x,W,Ht); }); }
+function buildHSR(){ const g=Z.hsr, m=transitMats(), H0=HSR; COLROOTS.set(g,0);
+  // ground: grass around the station, gravel along the line
+  planeXZ(g,7000,36,uvs(std({map:T.concrete,color:'#5d5a54',roughness:0.95,envMapIntensity:0.2}),6),0,0.0,-458);
+  planeRects(g,rectsMinus({x0:HSRR.x0,x1:HSRR.x1,z0:-440,z1:HSRR.z1},[{x0:159,x1:181,z0:-352,z1:-300},{x0:163,x1:177,z0:-366,z1:-300},{x0:100,x1:240,z0:-366,z1:-352},{x0:90,x1:250,z0:-432,z1:-366},{x0:30,x1:310,z0:-440,z1:-432}]),M.grass,0.004);
+  // kerbside drop-off, plaza with bollards and planters
+  planeXZ(g,140,14,M.asphalt,170,0.02,-359); MAP.roads.push({x0:100,z0:-366,x1:240,z1:-352});
+  fenceLine(g,90,-352,158.8,-352); fenceLine(g,181.2,-352,250,-352); fenceLine(g,90,-352,90,-366); fenceLine(g,250,-352,250,-366);
+  walkBox(g,90,-382,250,-366); for(let x=100.8;x<240;x+=1.6){ cylY(g,0.11,0.12,0.8,m.dark,x,0.15,-366.4,10); addCircle(x,-366.4,0.13,0,1); }
+  for(const x of [104,236]){ boxMM(g,x-2,0.15,-381,x+2,0.75,-377,m.stone); }
+  // the hall
+  const holes=HOLES.filter(h=>inR(H0,(h.x0+h.x1)/2,(h.z0+h.z1)/2));
+  for(const r of rectsMinus({x0:H0.x0,x1:H0.x1,z0:H0.z0,z1:H0.z1},holes)){ box(g,r.x1-r.x0,0.15,r.z1-r.z0,m.floorW,(r.x0+r.x1)/2,0.075,(r.z0+r.z1)/2); addSurface(r.x0,r.z0,r.x1,r.z1,0.15); }
+  const HT=17.5;
+  { const doorsX=[124,170,216]; const cuts=doorsX.map(x=>[x-3,x+3]);
+    for(const [a,b] of segsMinus(H0.x0,H0.x1,cuts)){ boxMM(g,a,0.15,-382.04,b,4.2,-381.96,m.glass); }
+    box(g,H0.x1-H0.x0,HT-4.2,0.08,m.glass,170,(HT+4.2)/2,-382);
+    for(let x=H0.x0;x<=H0.x1+0.01;x+=4) box(g,0.14,HT,0.8,m.alu,x,HT/2,-381.7);
+    for(const y of [4.2,9,13.4]) box(g,H0.x1-H0.x0,0.14,0.3,m.alu,170,y,-381.9);
+    for(const x of doorsX){ box(g,8,0.2,4,m.glass,x,4.5,-380); box(g,8,0.22,0.1,m.alu,x,4.45,-378);
+      boxMM(g,x-2.6,0.15,-387,x-1.4,1.4,-384,m.alu); box(g,1.18,0.3,3,m.dark,x-2,1.2,-385.5); for(const e of [0.9,2.3]) boxMM(g,x+e-0.06,0.15,-385.6,x+e+0.06,2.4,-385.4,m.steel); box(g,1.52,0.14,0.2,m.steel,x+1.6,2.33,-385.5); } }
+  for(const x of [H0.x0,H0.x1]) boxMM(g,x-0.6,0,H0.z0,x+0.6,HT+1.5,H0.z1,m.stone);
+  { const cuts=[[150,190]]; for(const [a,b] of segsMinus(H0.x0,H0.x1,cuts)) boxMM(g,a,0.15,-432.04,b,3.6,-431.96,m.glass);
+    box(g,H0.x1-H0.x0,HT-3.6,0.08,m.glass,170,(HT+3.6)/2,-432); for(let x=H0.x0;x<=H0.x1+0.01;x+=4) box(g,0.14,HT,0.5,m.alu,x,HT/2,-432.3); box(g,40.4,0.3,0.4,m.dark,170,3.75,-431.8); }
+  box(g,172,1.6,68,m.ceilW,170,HT+0.8,-402);                                                                   // roof, with a deep canopy over the plaza
+  box(g,172,3,0.6,m.alu,170,HT+0.5,-368); for(const e of [-1,1]) box(g,0.6,3,68,m.alu,170+e*86,HT+0.5,-402);
+  for(let z=-426;z<=-386;z+=8) box(g,150,0.05,0.4,m.light,170,HT-0.03,z);
+  for(const x of [100,128,156,184,212,240]){ cylY(g,0.65,0.8,HT,m.alu,x,0,-370,24); addCircle(x,-370,0.8,0,HT); }
+  const nameM=basic({map:textTex(2048,320,(x,W,Ht)=>{ x.clearRect(0,0,W,Ht); x.fillStyle='#d8261f'; x.font=`700 230px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('澜 城 南 站',W/2,Ht/2+10); }),transparent:true,color:lin(1.6,0.9,0.8)});
+  add(g,new THREE.PlaneGeometry(34,5.3),nameM,170,HT+4.1,-368.2); box(g,36,0.25,0.25,m.dark,170,HT+1.75,-368.3);
+  add(g,new THREE.PlaneGeometry(60,1.9),basic({map:textTex(2048,96,(x,W,Ht)=>{ x.clearRect(0,0,W,Ht); x.fillStyle='#f2ece0'; x.font=`500 64px ${UIF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('L A N C H E N G   S O U T H   R A I L W A Y   S T A T I O N',W/2,Ht/2); }),transparent:true,color:lin(1.4,1.4,1.4)}),170,HT+0.5,-367.66);
+  // inside: waiting seats, departure boards, gates, kiosks, info desk, clock
+  { const sg=new THREE.BoxGeometry(0.5,0.08,0.46), bg=new THREE.BoxGeometry(0.5,0.46,0.06), lg=new THREE.BoxGeometry(0.06,0.42,0.4); const S=[],B=[],Lg=[];
+    for(const [x0,x1] of [[102,145],[198,238]]) for(const z of [-396,-402.5,-409,-415.5,-422]){ addBox(x0,z-0.6,x1,z+0.6,0.15,0.62);
+      for(let x=x0+0.3;x<x1;x+=0.56) for(const sd of [-1,1]){ S.push([x,0.6,z+sd*0.3]); B.push([x,0.86,z+sd*0.06]); } for(let x=x0+0.3;x<x1;x+=2.8) Lg.push([x,0.36,z]); }
+    const put=(geo,mat,arr)=>{ const im=new THREE.InstancedMesh(geo,mat,arr.length), m4=new THREE.Matrix4(); arr.forEach(([x,y,z],i)=>{ m4.makeTranslation(x,y,z); im.setMatrixAt(i,m4); }); im.receiveShadow=true; im.userData.noCast=true; g.add(im); };
+    put(sg,m.seatBlue,S); put(bg,m.seatBlue,B); put(lg,m.steel,Lg); }
+  const bd=basic({map:boardTex(),color:lin(1.2,1.2,1.2)});
+  for(const x of [128,212]){ box(g,14.6,5.1,0.4,m.dark,x,8.3,-431.6); add(g,new THREE.PlaneGeometry(14,4.8),bd,x,8.3,-431.38); }
+  add(g,new THREE.PlaneGeometry(22,2.4),basic({map:textTex(1024,112,(x,W,Ht)=>{ x.fillStyle='#0f1a2e'; x.fillRect(0,0,W,Ht); x.fillStyle='#f2ece0'; x.font=`500 60px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('检票口 A1–A3  Ticket Gates',W/2,Ht/2+3); }),color:lin(1.3,1.3,1.3)}),170,4.9,-431.5);
+  for(let x=150.6;x<190;x+=1.25){ boxMM(g,x-0.14,0.15,-432,x+0.14,1.2,-430.2,m.steel); box(g,0.3,0.02,1.8,m.dark,x,1.21,-431.1); box(g,0.3,0.08,0.02,basic({color:lin(0.2,3,0.8)}),x,1.05,-430.19); }
+  for(const [x0,x1,txt] of [[93,105,'便利店  Mart'],[235,247,'咖啡  Coffee']]){ boxMM(g,x0,0.15,-430,x1,3.6,-424,m.dark); box(g,x1-x0-0.4,2.4,0.05,m.glass,(x0+x1)/2,1.5,-423.97);
+    add(g,new THREE.PlaneGeometry(x1-x0-1,0.8),basic({map:textTex(512,80,(x,W,Ht)=>{ x.fillStyle='#1a1a1c'; x.fillRect(0,0,W,Ht); x.fillStyle='#ecd6a2'; x.font=`500 44px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText(txt,W/2,Ht/2+2); }),color:lin(1.4,1.4,1.4)}),(x0+x1)/2,3.1,-423.9);
+    LIGHTSRC.push({p:[(x0+x1)/2,-422],y:3,c:[1,0.85,0.65],i:10,zone:'hsr'}); }
+  cylY(g,2.2,2.2,1.1,m.stone,170,0.15,-391,40); addCircle(170,-391,2.3,0,1.3); cylY(g,2.3,2.3,0.06,m.dark,170,1.25,-391,40);
+  { const ck=textTex(256,256,(x)=>{ x.fillStyle='#f6f4ee'; x.beginPath(); x.arc(128,128,124,0,TAU); x.fill(); x.fillStyle='#222'; for(let i=0;i<12;i++){ const a=i/12*TAU; x.fillRect(124+Math.sin(a)*100,124-Math.cos(a)*100,8,8); } x.strokeStyle='#222'; x.lineWidth=8; x.beginPath(); x.moveTo(128,128); x.lineTo(128+60,128-20); x.moveTo(128,128); x.lineTo(128-10,128-95); x.stroke(); });
+    add(g,new THREE.CircleGeometry(1.6,40),basic({map:ck,color:lin(1.1,1.1,1.1)}),170,12.5,-431.4); }
+  for(const x of [110,150,190,230]) for(const z of [-394,-420]) LIGHTSRC.push({p:[x,z],y:14,c:[1,0.97,0.92],i:42,zone:'hsr'});
+  // platform, its ramp from the gates, canopy and furniture
+  const PY=H0.py;
+  for(const r of rectsMinus({x0:30,x1:310,z0:-452,z1:-432},[{x0:150,x1:190,z0:-440,z1:-432}])){ box(g,r.x1-r.x0,PY,r.z1-r.z0,m.floor,(r.x0+r.x1)/2,PY/2,(r.z0+r.z1)/2); addSurface(r.x0,r.z0,r.x1,r.z1,PY); }
+  stairs(g,m.floorD,m.yellow,-432,-440,0.15,PY,150,190,true); addRamp(150,-440,190,-432,'z',PY,0.15);
+  for(const x of [150,190]){ box(g,0.2,PY+1.1,8,m.stone,x,(PY+1.1)/2,-436); addBox(x-0.12,-440,x+0.12,-432,0,PY+1.2); }
+  planeXZ(g,280,0.3,m.yellow,170,PY+0.004,-450.9);
+  addBox(30,-452.3,310,-451.95,PY,PY+2.5); addBox(29.7,-452,30.1,-432,PY,PY+2.5); addBox(309.9,-452,310.3,-432,PY,PY+2.5);
+  for(const [a,b] of [[30,90],[250,310]]){ box(g,b-a,1.1,0.06,m.glass,(a+b)/2,PY+0.55,-432); addBox(a,-432.2,b,-431.8,PY,PY+1.3); }
+  box(g,270,0.4,21.5,m.ceilW,170,PY+6.2,-444.2); for(const z of [-448,-440]) box(g,262,0.04,0.3,m.light,170,PY+5.98,z);
+  for(let x=40;x<=300;x+=15){ cylY(g,0.28,0.32,6,m.alu,x,PY,-443,16); addCircle(x,-443,0.34,PY,PY+6); }
+  for(let i=0;i<8;i++){ const x=170-87.5+25*i; add(g,new THREE.PlaneGeometry(1.2,1.2),basic({map:textTex(128,128,(c)=>{ c.fillStyle='#1d4c95'; c.fillRect(0,0,128,128); c.fillStyle='#fff'; c.font=`700 84px ${UIF}`; c.textAlign='center'; c.textBaseline='middle'; c.fillText(String(8-i),64,70); })}),x+11,PY+0.005,-449.6,-Math.PI/2,0,0); }
+  for(const x of [80,130,210,260]){ const b=group(g,x,PY,-438); box(b,2.4,0.05,0.5,m.steel,0,0.45,0); box(b,2.4,0.45,0.05,m.steel,0,0.7,-0.22); addBox(x-1.2,-438.3,x+1.2,-437.7,PY,PY+0.46); }
+  { const pm=basic({map:textTex(512,128,(x,W,Ht)=>{ x.fillStyle='#1d4c95'; x.fillRect(0,0,W,Ht); x.fillStyle='#fff'; x.font=`700 70px ${UIF}`; x.textAlign='left'; x.textBaseline='middle'; x.fillText('1',30,Ht/2+4); x.font=`500 48px ${CNF}`; x.fillText('站台  Platform',90,Ht/2+2); }),color:lin(1.3,1.3,1.3)});
+    for(const x of [60,120,220,280]) for(const e of [-1,1]) add(g,new THREE.PlaneGeometry(3.2,0.8),pm,x,PY+4.6,-443+e*0.06,0,e>0?0:Math.PI,0); }
+  for(const x of [60,120,170,220,280]) LIGHTSRC.push({p:[x,-444],y:PY+5.6,c:[0.95,0.97,1],i:26,zone:'hsr'});
+  // the line itself: slab track, rails, catenary and noise walls, running out past the horizon
+  const RL=6400;
+  for(const tz of [H0.t1,H0.t2]){ box(g,RL,0.15,3,m.conc,0,0.075,tz); for(const rs of [-0.7175,0.7175]) box(g,RL,0.15,0.07,m.rail,0,0.225,tz+rs); box(g,RL,0.02,0.02,m.dark,0,5.6,tz); box(g,RL,0.015,0.015,m.dark,0,6.9,tz); }
+  for(let x=-3180;x<=3180;x+=60){ box(g,0.35,7.6,0.35,m.dark,x,3.8,-463.6); box(g,11.5,0.12,0.12,m.dark,x,6.9,-457.9); box(g,0.1,1.3,0.1,m.dark,x,6.25,H0.t1); box(g,0.1,1.3,0.1,m.dark,x,6.25,H0.t2); }
+  box(g,RL,2.2,0.3,m.conc,0,1.1,-466); for(const [a,b] of [[-3200,26],[314,3200]]) box(g,b-a,2.2,0.3,m.conc,(a+b)/2,1.1,-448.3);
+  // trains: one that stops here, one that runs straight through
+  HT_[0].m=crhTrain(); setCrhDoors(HT_[0],0); HT_[1].m={g:HT_[0].m.g.clone(),DL:null,doors:[],last:-1}; for(const tr of HT_){ g.add(tr.m.g); tr.m.g.visible=false; }
+  bake(g);
+}
+/* ---------- the airport: terminal, apron, airliners, runway, tower ---------- */
+const APT={runX:910,runZ0:-360,runZ1:900,gates:[{z:-110,sc:1},{z:-40,sc:0.66},{z:30,sc:1}]};
+const AP={};
+const roofY=x=>15+7*Math.sin(Math.PI*clamp((x-448)/112,0,1));
+function strut(g,mat,a,b,r){ const d=new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]), L=d.length(); const m=add(g,new THREE.CylinderGeometry(r,r,L,10),mat,(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2); m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()); return m; }
+function liveryTex(){ const W=256, Ht=2048, px=Ht/60; const [c,x]=mkCanvas(W,Ht);
+  x.fillStyle='#f3f3f1'; x.fillRect(0,0,W,Ht); const bg=x.createLinearGradient(140,0,240,0); bg.addColorStop(0,'rgba(190,195,202,0)'); bg.addColorStop(0.2,'#c3c7cd'); bg.addColorStop(0.8,'#c3c7cd'); bg.addColorStop(1,'rgba(190,195,202,0)'); x.fillStyle=bg; x.fillRect(140,0,100,Ht);
+  x.fillStyle='#c9a86a'; for(const [a,b] of [[0,2],[253,256],[125,131]]) x.fillRect(a,5*px,b-a,45*px);
+  x.fillStyle='#1b3160'; for(const [a,b] of [[2,4],[251,253],[122,125],[131,134]]) x.fillRect(a,5*px,b-a,45*px);
+  const doors=[6.5,20.5,41,52];
+  for(let d=8;d<50;d+=0.53){ if(doors.some(q=>Math.abs(q-d)<1)) continue; x.fillStyle='#1b2230'; for(const u of [7,117]) x.fillRect(u,d*px-4,5,8); }
+  x.strokeStyle='#9aa0a8'; x.lineWidth=2; for(const d of doors) for(const u of [-4,106]) x.strokeRect(u,d*px-18,26,36);
+  x.fillStyle='#10151d'; x.beginPath(); x.moveTo(6,2.2*px); x.lineTo(46,2.6*px); x.lineTo(50,3.5*px); x.lineTo(6,3.6*px); x.fill(); x.beginPath(); x.moveTo(122,2.2*px); x.lineTo(82,2.6*px); x.lineTo(78,3.5*px); x.lineTo(122,3.6*px); x.fill();
+  x.fillStyle='#1b3160'; x.font=`600 30px ${UIF}`; x.textBaseline='middle';
+  x.save(); x.translate(27,12*px); x.rotate(Math.PI/2); x.textAlign='left'; x.fillText('LANAIR  澜航',0,0); x.restore();
+  x.save(); x.translate(101,28*px); x.rotate(-Math.PI/2); x.textAlign='left'; x.fillText('LANAIR  澜航',0,0); x.restore();
+  x.font=`500 14px ${UIF}`; x.fillStyle='#333'; x.save(); x.translate(20,47*px); x.rotate(Math.PI/2); x.fillText('B-8818',0,0); x.restore();
+  const t=toTex(c,1,1,true); t.wrapS=THREE.RepeatWrapping; t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+function tailTex(){ const t=textTex(512,512,(x,W,Ht)=>{ x.fillStyle='#14254a'; x.fillRect(0,0,W,Ht); x.strokeStyle='#c9a86a'; x.lineWidth=16; x.beginPath(); x.arc(300,250,120,0,TAU); x.stroke();
+  x.fillStyle='#e3c58a'; x.font=`500 150px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('澜',300,258); x.fillStyle='rgba(201,168,106,.6)'; x.fillRect(0,470,W,14); });
+  t.repeat.set(1/13,1/11); t.offset.set(-16.5/13,0.14); return t; }
+function planeMats(){ if(AP.done) return AP; AP.done=true;
+  AP.body=std({map:liveryTex(),roughness:0.28,metalness:0.12,envMapIntensity:0.9});
+  AP.wing=std({color:'#cdd0d5',roughness:0.35,metalness:0.4,envMapIntensity:0.9}); AP.eng=std({color:'#ecebe8',roughness:0.3,metalness:0.2,envMapIntensity:0.8});
+  AP.dark=std({color:'#1b1c1f',roughness:0.6,metalness:0.4}); AP.chrome=M.chrome;
+  const tt=tailTex(); AP.tail=std({map:tt,emissive:'#ffffff',emissiveMap:tt,emissiveIntensity:0,roughness:0.3,envMapIntensity:0.8});
+  return AP; }
+function airliner(){ const a=planeMats(), g=new THREE.Group(), Hc=5.6, R=2.9;
+  const pts=[new THREE.Vector2(0.001,-30.05)]; for(let q=-30;q<=30.001;q+=0.5){ let r=R; if(q>21){ const n=(q-21)/9; r=R*Math.sqrt(Math.max(0,1-Math.pow(n,2.2))); } else if(q<-14){ const n=(-14-q)/16; r=R*(1-0.85*Math.pow(n,1.6)); } pts.push(new THREE.Vector2(Math.max(0.001,r),q)); }
+  const fg=new THREE.LatheGeometry(pts,40); fg.rotateZ(Math.PI/2); { const p=fg.attributes.position; for(let i=0;i<p.count;i++){ const x=p.getX(i); if(x>14){ const t=(x-14)/16; p.setY(i,p.getY(i)+t*t*1.7*(1-p.getY(i)/R)); } } fg.computeVertexNormals(); }
+  fg.translate(0,Hc,0); g.add(new THREE.Mesh(fg,a.body));
+  const ext=(pts2,depth,bev)=>new THREE.ExtrudeGeometry(new THREE.Shape(pts2.map(([u,v])=>new THREE.Vector2(u,v))),{depth,bevelEnabled:true,bevelThickness:bev,bevelSize:bev*0.8,bevelSegments:2,curveSegments:2});
+  for(const sd of [-1,1]){ const w=ext([[-6,0.4*sd],[12,29.5*sd],[14.8,29.5*sd],[6.5,0.4*sd]],0.55,0.14); w.rotateX(Math.PI/2); const p=w.attributes.position; for(let i=0;i<p.count;i++) p.setY(i,p.getY(i)+Math.abs(p.getZ(i))*0.07); w.computeVertexNormals(); w.translate(0,Hc-R*0.6+0.35,0); g.add(new THREE.Mesh(w,a.wing));
+    box(g,2.4,2.3,0.14,a.wing,14.2,Hc-R*0.6+0.35+29.5*0.07+1.1,sd*29.6);
+    const s=ext([[20.5,0.3*sd],[26.3,10.2*sd],[28.5,10.2*sd],[27.4,0.3*sd]],0.3,0.08); s.rotateX(Math.PI/2); s.translate(0,Hc+0.9,0); g.add(new THREE.Mesh(s,a.wing));
+    const nz=sd*10.5, ny=Hc-R*0.6+0.35+10.5*0.07-0.35-0.25-1.5;
+    add(g,new THREE.CylinderGeometry(1.5,1.25,6.4,28),a.eng,-6,ny,nz,0,0,Math.PI/2); add(g,new THREE.CircleGeometry(1.36,28),a.dark,-9.21,ny,nz,0,-Math.PI/2,0);
+    add(g,new THREE.ConeGeometry(0.42,0.9,16),a.chrome,-9.5,ny,nz,0,0,Math.PI/2); add(g,new THREE.ConeGeometry(0.75,1.5,16),a.dark,-2.1,ny,nz,0,0,-Math.PI/2);
+    box(g,5.4,0.9,0.5,a.wing,-3.6,ny+1.8,nz); }
+  { const f=ext([[16,-1.5],[26.2,10.8],[29,10.8],[30.2,-1.5]],0.6,0.1); f.translate(0,Hc+2.2,-0.3); g.add(new THREE.Mesh(f,a.tail)); }
+  box(g,8,0.9,5.2,a.wing,1.5,Hc-R*0.72,0);                                                                    // wing-body fairing
+  bake(g);
+  const gear=new THREE.Group(); g.add(gear);
+  strut(gear,a.chrome,[-24,0.5,0],[-24,Hc-R+0.4,0],0.14); for(const z of [-0.35,0.35]) add(gear,new THREE.CylinderGeometry(0.55,0.55,0.3,16),a.dark,-24,0.55,z,Math.PI/2,0,0);
+  for(const sd of [-1,1]){ strut(gear,a.chrome,[1,1.1,sd*5.8],[1,Hc-R*0.6,sd*5.8],0.22); box(gear,2.2,0.2,0.3,a.dark,1,1.0,sd*5.8); for(const dx of [-0.8,0.8]) for(const dz of [-0.4,0.4]) add(gear,new THREE.CylinderGeometry(0.62,0.62,0.34,16),a.dark,1+dx,0.62,sd*5.8+dz,Math.PI/2,0,0); }
+  bake(gear); gear.userData.dyn=true;
+  const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute([14.6,Hc-R*0.6+0.35+2.1,29.7, 14.6,Hc-R*0.6+0.35+2.1,-29.7, 0,Hc+R+0.2,0, 29.9,Hc+1.6,0, -4,Hc-R*0.5,3.5, -4,Hc-R*0.5,-3.5, -24,Hc-R+0.6,0],3));
+  lg.setAttribute('color',new THREE.Float32BufferAttribute(new Array(21).fill(0),3));
+  const lights=new THREE.Points(lg,new THREE.PointsMaterial({map:T.glow,size:2.4,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); lights.frustumCulled=false; g.add(lights);
+  g.traverse(o=>{ if(o.isMesh){ o.receiveShadow=true; } });
+  g.rotation.order='YZX'; return {g,gear,lights}; }
+function runwayNum(txt){ return textTex(256,512,(x,W,Ht)=>{ x.clearRect(0,0,W,Ht); x.fillStyle='#f0f0ec'; x.font=`700 300px ${UIF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText(txt,W/2,Ht/2); }); }
+function fidsTex(){ return textTex(1024,340,(x,W,Ht)=>{ x.fillStyle='#07101f'; x.fillRect(0,0,W,Ht); x.fillStyle='#1b3160'; x.fillRect(0,0,W,50); x.fillStyle='#fff'; x.font=`500 30px ${CNF}`; x.textBaseline='middle'; x.textAlign='left';
+  x.fillText('出发 Departures',20,26); x.textAlign='right'; x.fillText('T1',W-20,26); x.textAlign='left';
+  const rows=[['LN808','东京 Tokyo','14:05','101','登机 Boarding','#6bf07a'],['LN216','巴黎 Paris','14:20','103','登机 Boarding','#6bf07a'],['LN1502','北京 Beijing','14:35','102','值机 Check-in','#ffd166'],['LN3310','新加坡 Singapore','14:50','105','值机 Check-in','#ffd166'],['LN6061','伦敦 London','15:15','108','值机 Check-in','#ffd166'],['LN926','首尔 Seoul','15:30','104','延误 Delayed','#ff6b5a']];
+  rows.forEach((r,j)=>{ const y=84+j*42; x.font=`500 28px ${UIF}`; x.fillStyle='#ffffff'; x.fillText(r[0],20,y); x.font=`500 28px ${CNF}`; x.fillText(r[1],170,y); x.font=`500 28px ${UIF}`; x.fillText(r[2],520,y); x.fillText(r[3],640,y); x.fillStyle=r[5]; x.font=`500 26px ${CNF}`; x.fillText(r[4],740,y); }); }); }
+function buildAirport(){ const g=Z.air, m=transitMats(), pm=planeMats(); COLROOTS.set(g,0);
+  const paint=(c)=>std({color:c,roughness:0.6,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4});
+  const W_=paint('#ecebe6'), Y_=paint('#dcae2a');
+  const runM=uvs(std({map:T.asphalt,color:'#8d8d8f',roughness:0.55,normalMap:M.asphalt.normalMap,envMapIntensity:0.5}),9);
+  const PAVED=[{x0:470,x1:545,z0:-140,z1:60},{x0:545,x1:780,z0:-260,z1:220},{x0:800,x1:823,z0:-360,z1:880},{x0:780,x1:800,z0:-240,z1:-217},{x0:780,x1:800,z0:170,z1:193},
+    {x0:823,x1:880,z0:-352,z1:-329},{x0:823,x1:880,z0:480,z1:503},{x0:823,x1:880,z0:850,z1:873},{x0:880,x1:940,z0:-360,z1:900},{x0:570,x1:710,z0:290,z1:400},{x0:685,x1:715,z0:-345,z1:-315}];
+  planeRects(g,rectsMinus(AIRR,[{x0:300,x1:470.4,z0:-170.4,z1:92.4},...PAVED]),M.grass,0.004);
+  planeXZ(g,235,480,m.concL,662.5,0.01,-20); for(const r of PAVED.slice(2,8)) planeXZ(g,r.x1-r.x0,r.z1-r.z0,M.asphalt,(r.x0+r.x1)/2,0.012,(r.z0+r.z1)/2);
+  planeXZ(g,60,1260,runM,910,0.012,270); planeXZ(g,140,110,m.concL,640,0.01,345); planeXZ(g,30,30,m.concL,700,0.01,-330);
+  // runway and taxiway markings
+  for(let z=-240;z<780;z+=50) planeXZ(g,0.9,30,W_,910,0.02,z);
+  for(const sd of [-1,1]) planeXZ(g,0.9,1250,W_,910+sd*29,0.02,270);
+  for(const [z0,dz] of [[-352,1],[892,-1]]) for(const sd of [-1,1]) for(let k=0;k<6;k++) planeXZ(g,1.8,30,W_,910+sd*(4+k*3.9),0.02,z0+dz*16);
+  for(const [z,dz] of [[40,1],[500,-1]]) for(const sd of [-1,1]) planeXZ(g,6,45,W_,910+sd*9,0.02,z);
+  add(g,new THREE.PlaneGeometry(14,28),basic({map:runwayNum('36'),transparent:true,color:lin(0.9,0.9,0.88),polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4}),910,0.022,-305,-Math.PI/2,0,Math.PI);
+  add(g,new THREE.PlaneGeometry(14,28),basic({map:runwayNum('18'),transparent:true,color:lin(0.9,0.9,0.88),polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-4}),910,0.022,845,-Math.PI/2,0,0);
+  planeXZ(g,0.3,1240,Y_,811.5,0.02,260); for(const z of [-228.5,181.5]) planeXZ(g,236,0.3,Y_,690,0.02,z); for(const z of [-340.5,491.5,861.5]) planeXZ(g,69,0.3,Y_,845.5,0.02,z);
+  planeXZ(g,0.3,470,Y_,720,0.02,-20);
+  for(const G of APT.gates){ planeXZ(g,160,0.3,Y_,640,0.02,G.z); planeXZ(g,0.3,8,Y_,562+6*G.sc,0.021,G.z); }
+  // terminal: floor, glass walls, a wave roof on timber, tree columns
+  const holes=HOLES.filter(h=>inR(AIR,(h.x0+h.x1)/2,(h.z0+h.z1)/2));
+  for(const r of rectsMinus(AIR,holes)){ box(g,r.x1-r.x0,0.15,r.z1-r.z0,m.floorW,(r.x0+r.x1)/2,0.075,(r.z0+r.z1)/2); addSurface(r.x0,r.z0,r.x1,r.z1,0.15); }
+  const ents=[-110,-70,-10,30];
+  { for(const [a,b] of segsMinus(AIR.z0,AIR.z1,ents.map(z=>[z-3,z+3]))) boxMM(g,469.96,0.15,a,470.04,4.3,b,m.glass);
+    const y1=roofY(470); box(g,0.08,y1-4.3,200,m.glass,470,(y1+4.3)/2,-40); for(let z=AIR.z0;z<=AIR.z1+0.01;z+=5) box(g,0.7,y1,0.14,m.alu,469.7,y1/2,z); box(g,0.3,0.14,200,m.alu,469.9,4.3,-40);
+    for(const z of ents){ box(g,0.3,0.4,6.4,m.dark,470,4.5,z); for(const e of [-1,1]) box(g,0.04,4,1.5,m.glass,470.3,2.15,z+e*3.7); } }
+  { const y1=roofY(545); boxMM(g,544.96,0.15,AIR.z0,545.04,4.3,AIR.z1,m.glass); box(g,0.08,y1-4.3,200,m.glass,545,(y1+4.3)/2,-40); for(let z=AIR.z0;z<=AIR.z1+0.01;z+=5) box(g,0.6,y1,0.14,m.alu,545.3,y1/2,z); }
+  { const sh=new THREE.Shape(); sh.moveTo(470,0.15); for(let i=0;i<=24;i++){ const x=470+i*75/24; sh.lineTo(x,roofY(x)); } sh.lineTo(545,0.15); const eg=new THREE.ShapeGeometry(sh); const gm=m.glass.clone(); gm.side=THREE.DoubleSide;
+    for(const z of [AIR.z0,AIR.z1]){ const e=new THREE.Mesh(eg,gm); e.position.z=z; g.add(e); addBox(470,z-0.1,545,z+0.1,0,4); for(let x=474;x<545;x+=5) box(g,0.14,roofY(x),0.5,m.alu,x,roofY(x)/2,z); } }
+  { const band=(o0,o1,mat)=>{ const sh=new THREE.Shape(); const N=40; for(let i=0;i<=N;i++){ const x=446+i*116/N; (i?sh.lineTo:sh.moveTo).call(sh,x,roofY(x)+o1); } for(let i=N;i>=0;i--){ const x=446+i*116/N; sh.lineTo(x,roofY(x)+o0); }
+      const e=new THREE.ExtrudeGeometry(sh,{depth:216,bevelEnabled:false,curveSegments:1}); e.translate(0,0,-148); g.add(new THREE.Mesh(e,mat)); };
+    band(0,1.2,m.dark); band(-0.08,0,M.oak); band(1.2,1.3,m.alu); }
+  for(let z=-124;z<=56;z+=36) for(const x of [488,518]){ cylY(g,0.42,0.5,11,m.steel,x,0.15,z,16); addCircle(x,z,0.55,0,11.2); for(const [dx,dz] of [[-7,-7],[7,-7],[-7,7],[7,7]]) strut(g,m.steel,[x,11.1,z],[x+dx,roofY(x+dx)-0.1,z+dz],0.16); }
+  // check-in islands, departures wall, security, gate lounge
+  const logoM=basic({map:textTex(1024,128,(x,W,Ht)=>{ x.fillStyle='#14254a'; x.fillRect(0,0,W,Ht); x.fillStyle='#e3c58a'; x.font=`500 64px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('澜航  LANAIR  ·  值机 Check-in',W/2,Ht/2+3); }),color:lin(1.3,1.3,1.3)});
+  ['A','B','C','D'].forEach((L,i)=>{ const zc=[-120,-92,12,42][i]; box(g,32,3,0.6,m.wall,506,1.65,zc); for(const sd of [-1,1]){ add(g,new THREE.PlaneGeometry(30,0.62),logoM,506,2.75,zc+sd*0.31,0,sd>0?0:Math.PI,0); box(g,32,0.36,0.7,m.dark,506,0.33,zc+sd*0.65);
+      for(let x=491;x<522;x+=2){ box(g,1.2,1.05,0.7,m.wall,x,0.68,zc+sd*1.35); box(g,0.4,0.28,0.04,m.dark,x,1.36,zc+sd*1.08); }
+      for(let x=492;x<522;x+=2.5) cylY(g,0.03,0.03,0.95,m.steel,x,0.15,zc+sd*4.2,8); box(g,29,0.05,0.02,basic({color:lin(0.1,0.15,0.4)}),506.5,1.02,zc+sd*4.2); }
+    addBox(490,zc-1.75,522,zc+1.75,0.15,3.2);
+    box(g,0.5,5,1.4,m.dark,488.5,2.65,zc); add(g,new THREE.PlaneGeometry(1.2,1.2),basic({map:textTex(128,128,(x)=>{ x.fillStyle='#c9a86a'; x.fillRect(0,0,128,128); x.fillStyle='#14254a'; x.font=`700 96px ${UIF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText(L,64,70); }),color:lin(1.3,1.3,1.3)}),488.24,4.4,zc,0,-Math.PI/2,0); addBox(488.2,zc-0.7,488.8,zc+0.7,0,5); });
+  { const fm=basic({map:fidsTex(),color:lin(1.2,1.2,1.2)}); boxMM(g,509.6,0.15,-62,510.4,7.6,-18,m.dark); for(const e of [-1,1]) add(g,new THREE.PlaneGeometry(15.6,5.2),fm,510+e*0.41,4.6,-40,0,e*Math.PI/2,0); }
+  { const lanes=[-60,-45,-30,-15]; for(const [a,b] of segsMinus(AIR.z0,AIR.z1,lanes.map(z=>[z-1,z+1]))){ box(g,0.03,1.1,b-a,m.glass,528,0.7,(a+b)/2); box(g,0.08,0.06,b-a,m.alu,528,1.26,(a+b)/2); addBox(527.9,a,528.1,b,0.15,1.3); }
+    for(const z of lanes){ for(const e of [-1,1]) boxMM(g,528-0.8,0.15,z+e*1.0-0.06,528+0.8,2.4,z+e*1.0+0.06,m.steel); box(g,1.6,0.16,2.12,m.steel,528,2.35,z); boxMM(g,522.5,0.15,z+1.2,527,1.3,z+2.4,m.alu); box(g,4.4,0.3,1.1,m.dark,524.75,1.15,z+1.8); }
+    add(g,new THREE.PlaneGeometry(20,1.2),basic({map:textTex(1024,64,(x,W,Ht)=>{ x.fillStyle='#14254a'; x.fillRect(0,0,W,Ht); x.fillStyle='#fff'; x.font=`500 40px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('安全检查  Security  ·  登机口 Gates 101–108',W/2,Ht/2+2); }),color:lin(1.3,1.3,1.3)}),526.8,5,-37.5,0,-Math.PI/2,0); }
+  { const sg=new THREE.BoxGeometry(0.46,0.08,0.5), bg=new THREE.BoxGeometry(0.06,0.46,0.5); const S=[],B=[];
+    for(const [z0,z1] of [[-136,-66],[-9,56]]) for(const x of [533,537.5]){ addBox(x-0.5,z0,x+0.5,z1,0.15,0.62); for(let z=z0+0.3;z<z1;z+=0.56){ S.push([x,0.6,z]); B.push([x-0.24,0.86,z]); } }
+    for(const [geo,arr] of [[sg,S],[bg,B]]){ const im=new THREE.InstancedMesh(geo,m.seatBlue,arr.length), m4=new THREE.Matrix4(); arr.forEach(([x,y,z],i)=>{ m4.makeTranslation(x,y,z); im.setMatrixAt(i,m4); }); im.userData.noCast=true; g.add(im); }
+    APT.gates.forEach((G,i)=>{ const gm=basic({map:textTex(512,128,(x,W,Ht)=>{ x.fillStyle='#c9a86a'; x.fillRect(0,0,W,Ht); x.fillStyle='#14254a'; x.font=`700 70px ${UIF}`; x.textAlign='left'; x.textBaseline='middle'; x.fillText(String(101+i*2),24,Ht/2+4); x.font=`500 44px ${CNF}`; x.fillText('登机口 Gate',190,Ht/2+2); }),color:lin(1.3,1.3,1.3)});
+      box(g,0.2,0.9,3.3,m.dark,543,5.2,G.z); add(g,new THREE.PlaneGeometry(3.2,0.8),gm,542.89,5.2,G.z,0,-Math.PI/2,0); boxMM(g,540.5,0.15,G.z+5,541.3,1.1,G.z+7,m.wall); }); }
+  for(const x of [482,506,530]) for(const z of [-120,-80,-40,0,40]) LIGHTSRC.push({p:[x,z],y:12,c:[1,0.96,0.9],i:40,zone:'air'});
+  // kerbside canopy and the name on the roof
+  box(g,24,0.4,200,m.ceilW,458,7.8,-40); box(g,24.4,0.6,0.3,m.alu,458,7.8,-140.1); box(g,24.4,0.6,0.3,m.alu,458,7.8,60.1); box(g,0.3,0.6,200.4,m.alu,446,7.8,-40); for(const z of [-130,-90,-50,-10,30,50]){ cylY(g,0.3,0.3,7.6,m.alu,447,0.15,z,12); addCircle(447,z,0.32,0,7.8); }
+  for(let z=-135;z<=55;z+=10) box(g,1.6,0.04,0.3,m.light,457,7.58,z); for(const z of [-120,-70,-20,30]) LIGHTSRC.push({p:[458,z],y:7,c:[1,0.96,0.9],i:22,zone:'street'});
+  add(g,new THREE.PlaneGeometry(48,4),basic({map:textTex(2048,176,(x,W,Ht)=>{ x.clearRect(0,0,W,Ht); x.fillStyle='#f2ece0'; x.font=`500 118px ${CNF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('澜城国际机场   LANCHENG INTL AIRPORT',W/2,Ht/2+6); }),transparent:true,color:lin(1.5,1.45,1.35)}),447.2,18.3,-40,0,-Math.PI/2,0);
+  // jet bridges and the airliners at their gates
+  for(const G of APT.gates){ const sc=G.sc, dx=562+6.5*sc, dz=G.z+2.9*sc, sill=4.7*sc;
+    cylY(g,2.2,2.2,sill+2.8,m.alu,549,0,G.z+1.2,20); box(g,1.6,sill+2.8,1.6,m.glass,547.2,(sill+2.8)/2,G.z+1.2);
+    const ax=551, az=G.z+1.2, bx=dx, bz=dz+2.6, L=Math.hypot(bx-ax,bz-az); const tb=box(g,L,2.8,2.6,m.wallG,(ax+bx)/2,sill+1.4,(az+bz)/2); tb.rotation.y=-Math.atan2(bz-az,bx-ax);
+    const tg=box(g,L,0.5,2.66,m.glass,(ax+bx)/2,sill+1.8,(az+bz)/2); tg.rotation.y=tb.rotation.y;
+    const lx=ax+(bx-ax)*0.7, lz=az+(bz-az)*0.7; for(const e of [-0.8,0.8]) box(g,0.3,sill,0.3,m.dark,lx,sill/2,lz+e); box(g,2.6,0.8,1.2,m.dark,lx,0.5,lz);
+    box(g,3.2,3.1,3.2,m.wallG,bx,sill+1.45,bz); box(g,2.6,2.6,1.2,m.dark,bx,sill+1.3,dz+0.8);
+    const pl=airliner(); pl.g.scale.setScalar(sc); pl.g.position.set(562+30*sc,0,G.z); g.add(pl.g); APT.parked=(APT.parked||[]).concat(pl);
+    for(const [x,z,w,h,d,c] of [[608*1,G.z-9,3.2,1.6,1.6,'#e8e4da'],[612,G.z-9,2.6,1.1,1.5,'#6b6f76'],[615,G.z-9,2.6,1.1,1.5,'#6b6f76'],[575,G.z-12,6.5,2.8,2.4,'#f1c232']]) box(g,w,h,d,std({color:c,roughness:0.6}),x*1,h/2,z); }
+  // tower, hangar, apron floodlights, runway and taxiway lights
+  { const tx=700, tz=-330; cylY(g,3.2,3.4,56,m.concL,tx,0,tz,24); cylY(g,6.2,3.2,4,m.concL,tx,56,tz,24);
+    add(g,new THREE.CylinderGeometry(6.8,6.0,5,8),std({color:'#0b1a1a',emissive:lin(0.04,0.16,0.13),metalness:0.6,roughness:0.08,envMapIntensity:1.4}),tx,62.5,tz); cylY(g,7.3,7.3,0.8,m.dark,tx,65,tz,24); cylY(g,0.2,0.3,9,m.steel,tx,65.8,tz,8); }
+  { const hx=640, hz=345; box(g,120,22,90,m.wallG,hx,11,hz); const rg=new THREE.CylinderGeometry(106,106,90,48,1,true,-0.6,1.2); rg.rotateX(-Math.PI/2); rg.translate(hx,-65.5,hz); g.add(new THREE.Mesh(rg,m.alu));
+    { const sh=new THREE.Shape(); sh.moveTo(-60,22); for(let i=0;i<=24;i++){ const t=-0.6+1.2*i/24; sh.lineTo(106*Math.sin(t),106*Math.cos(t)-65.5); } sh.lineTo(60,22); const gm=m.wallG.clone(); gm.side=THREE.DoubleSide;
+      for(const e of [-1,1]){ const gb=new THREE.Mesh(new THREE.ShapeGeometry(sh),gm); gb.position.set(hx,0,hz+e*45); g.add(gb); } }
+    add(g,new THREE.PlaneGeometry(118,20),basic({map:textTex(1024,176,(x,W,Ht)=>{ x.fillStyle='#3a3d42'; x.fillRect(0,0,W,Ht); x.fillStyle='rgba(0,0,0,.4)'; for(let i=0;i<W;i+=64) x.fillRect(i,0,3,Ht); x.fillStyle='#f2ece0'; x.font=`600 40px ${UIF}`; x.textAlign='center'; x.fillText('LANAIR  ·  MAINTENANCE',W/2,40); }),color:lin(0.9,0.9,0.9)}),hx,11,hz-45.05,0,Math.PI,0); }
+  { APT.poolM=basic({map:T.pool,color:lin(0.55,0.5,0.42),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,polygonOffset:true,polygonOffsetFactor:-3}); for(const z of [-180,-75,0,70,160]){ cylY(g,0.35,0.5,28,m.dark,640,0,z,10); box(g,3,1.2,1.2,m.lightW,640,28.4,z); lightPool(g,640,0.03,z,110,110,APT.poolM); } }
+  { const P=[], C=[], put=(x,y,z,r,gg,b)=>{ P.push(x,y,z); C.push(r,gg,b); };
+    for(let z=-350;z<=890;z+=60) for(const sd of [-1,1]) put(910+sd*30.5,0.4,z,2.2,2.1,1.9);
+    for(let z=-340;z<=890;z+=30) put(910,0.1,z,z>780?2.5:2,z>780?0.3:1.9,z>780?0.2:1.7);
+    for(let x=881;x<=939;x+=3){ put(x,0.3,-361,0.3,2.4,0.6); put(x,0.3,901,2.6,0.2,0.1); }
+    for(let z=-395;z<-362;z+=6) for(let x=-12;x<=12;x+=4) put(910+x,0.8,z,2.2,2.1,1.9);
+    for(let z=-355;z<=875;z+=30) for(const x of [799,824]) put(x,0.3,z,0.3,0.6,2.6);
+    for(let z=-340;z<=870;z+=15) put(811.5,0.08,z,0.3,2.2,0.6);
+    const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); lg.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
+    APT.lightsM=new THREE.PointsMaterial({map:T.glow,size:2.6,vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}); const pts=new THREE.Points(lg,APT.lightsM); pts.frustumCulled=false; g.add(pts);
+    const bg=new THREE.BufferGeometry(); bg.setAttribute('position',new THREE.Float32BufferAttribute([700,75.5,-330, 640,48,345],3)); APT.beacon=new THREE.Points(bg,new THREE.PointsMaterial({map:T.glow,color:lin(6,0.4,0.25),size:6,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); APT.beacon.frustumCulled=false; g.add(APT.beacon); }
+  // the two planes that come and go
+  APT.dep=airliner(); APT.arr=airliner(); for(const p of [APT.dep,APT.arr]){ p.g.userData.dyn=true; p.g.visible=false; p.g.traverse(o=>{ if(o.isMesh){ o.castShadow=false; o.userData.noCast=true; } }); g.add(p.g); }
+  APT.parked.forEach(p=>p.g.userData.dyn=true);
+  bake(g);
+}
+/* ---------- transit at run time: metro trains and riding them, the railway, the planes ---------- */
+const MT=[{k:0,st:0,phase:'wait',t:4,x:-150,v:0,doors:0,dx:0},{k:1,st:0,phase:'wait',t:34,x:150,v:0,doors:0,dx:0}];   // track 1 runs +x, track 2 runs -x
+const RIDE={on:false,T:null,lx:0,lz:0,fade:0,fadeDir:0};
+const HT_=[{phase:'dwell',t:8,x:0,v:0,doors:0},{phase:'away',t:30,x:-3300,v:83,dir:-1}];
+const PLN={dep:{phase:'hold',t:6,z:-330,v:0,y:0,p:0,gear:1},arr:{phase:'wait',t:35,z:-4300,v:72,y:0,p:0,gear:1}};
+const MT_A=0.8, MT_ACC=1.1;
+const mDir=T=>T.k===0?1:-1;
+function stationAt(x,z){ for(let i=0;i<3;i++){ const s=METRO[i]; if(Math.abs(x-s.ox)<210&&Math.abs(z-s.oz)<13.5) return i; } return -1; }
+function nearestStation(){ let b=0, bd=1e9; METRO.forEach((s,i)=>{ const d=Math.hypot(P.x-s.ox,P.z-s.oz); if(d<bd){ bd=d; b=i; } }); return b; }
+function mtDocked(si,k){ const T=MT[k]; return T.st===si&&(T.phase==='open'||T.phase==='dwell'||T.phase==='close'); }
+function psdOpen(si,k){ return mtDocked(si,k)?MT[k].doors:0; }
+const mtTrackZ=T=>METRO[T.st].oz+(T.k===0?-TRK:TRK);
+const playerAt=si=>stationAt(P.x,P.z)===si&&P.y<-2;
+for(const T of MT) LIGHTSRC.push({zone:'metro',get p(){ const s=METRO[T.st]; return [s.ox+T.x,mtTrackZ(T)]; },y:PL_Y+2.1,c:[0.92,0.96,1],i:24,prio:2,fn:()=>T.phase==='wait'?0:1});
+function boardCheck(T){ if(DRIVE.on||RIDE.on) return; const s=METRO[T.st], tz=mtTrackZ(T), wx=s.ox+T.x;
+  if(Math.abs(P.x-wx)<37.8&&Math.abs(P.y-PL_Y)<1){ const dz=Math.abs(P.z-tz);
+    if(dz<1.42){ RIDE.on=true; RIDE.T=T; RIDE.lx=P.x-wx; RIDE.lz=clamp(P.z-tz,-0.8,0.8); toast(`列车开往 ${METRO[nextSt(T.st,T.k)].n}  ·  1号线`); }
+    else if(dz<2.2) P.z=s.oz+(T.k===0?-4.85:4.85); } }
+function endRide(){ const s=METRO[RIDE.T.st]; RIDE.on=false; RIDE.T=null; toast(`${s.n}站 到了  ·  ${s.e}`); }
+function updateMetro(dt){
+  for(const T of MT){ const d=mDir(T), x0=T.x, st0=T.st;
+    switch(T.phase){
+      case 'wait': T.t-=dt; if(T.t<=0){ T.st=nearestStation(); T.x=-d*150; T.v=Math.sqrt(2*MT_A*150); T.phase='arrive'; if(playerAt(T.st)) sfx('mtin'); } break;
+      case 'arrive': { const rem=-d*T.x; if(rem<=0.03){ T.x=0; T.v=0; T.phase='open'; T.t=0; if(RIDE.on&&RIDE.T===T) endRide(); if(playerAt(T.st)) sfx('mtopen'); }
+        else { T.v=Math.max(0.4,Math.sqrt(2*MT_A*rem)); T.x+=d*Math.min(T.v*dt,rem); } break; }
+      case 'open': T.t+=dt; T.doors=Math.min(1,T.t/2.4); if(T.t>=2.4){ T.phase='dwell'; T.t=0; } break;
+      case 'dwell': T.t+=dt; if(T.t>=22){ T.phase='close'; T.t=0; if(playerAt(T.st)) sfx('chime'); } break;
+      case 'close': T.t+=dt; T.doors=clamp(1-(T.t-1.4)/2.4,0,1); if(T.t>=4){ T.doors=0; T.phase='depart'; T.t=0; T.v=0; boardCheck(T); } break;
+      case 'depart': T.v=Math.min(18,T.v+MT_ACC*dt); T.x+=d*T.v*dt;
+        if(RIDE.on&&RIDE.T===T){ if(d*T.x>80&&RIDE.fadeDir===0&&RIDE.fade===0) RIDE.fadeDir=1; }
+        else if(d*T.x>165){ T.phase='wait'; T.t=10+Math.random()*10; } break; }
+    T.dx=T.st===st0?T.x-x0:0;
+    const s=METRO[T.st]; T.m.g.visible=T.phase!=='wait'; T.m.g.position.set(s.ox+T.x,PL_Y,mtTrackZ(T)); T.m.g.rotation.y=T.k===0?0:Math.PI; setTrainDoors(T,T.doors); }
+  for(let si=0;si<3;si++) for(let k=0;k<2;k++) setPSD(si,k,psdOpen(si,k));
+  if(RIDE.fadeDir!==0){ RIDE.fade=clamp(RIDE.fade+RIDE.fadeDir*dt/0.7,0,1);
+    if(RIDE.fadeDir===1&&RIDE.fade>=1){ const T=RIDE.T, d=mDir(T); T.st=nextSt(T.st,T.k); T.x=-d*125; T.v=Math.sqrt(2*MT_A*125); T.phase='arrive'; RIDE.fadeDir=-1; toast(`下一站：${METRO[T.st].n}  Next: ${METRO[T.st].e}`); lastZone=''; }
+    else if(RIDE.fadeDir===-1&&RIDE.fade<=0) RIDE.fadeDir=0; }
+  const fe=$('#fade'); const fo=RIDE.fade.toFixed(3); if(fe.style.opacity!==fo) fe.style.opacity=fo;
+  const si=stationAt(P.x,P.z); if(si>=0&&P.y<-2){ setFlaps(si,false); PIDS.t-=dt; if(PIDS.t<=0){ PIDS.t=1; drawPIDS(si); } }
+}
+function rideMove(dt){ const T=RIDE.T, s=METRO[T.st]; RIDE.lx=clamp(RIDE.lx+P.vx*dt,-37.3,37.3); RIDE.lz=clamp(RIDE.lz+P.vz*dt,-0.8,0.8);
+  P.x=s.ox+T.x+RIDE.lx; P.z=mtTrackZ(T)+RIDE.lz; P.y=PL_Y; P.vy=0; P.inCab=false; P.onStair=false; }
+function updateHSR(dt){ const A=HT_[0], B=HT_[1];
+  switch(A.phase){
+    case 'away': A.t-=dt; if(A.t<=0){ A.phase='arrive'; A.x=-900; A.v=35; } break;
+    case 'arrive': { const rem=-A.x; if(rem<=0.05){ A.x=0; A.v=0; A.phase='dwell'; A.t=0; } else { A.v=Math.max(0.5,Math.sqrt(2*0.68*rem)); A.x+=Math.min(A.v*dt,rem); } break; }
+    case 'dwell': A.t+=dt; A.doors=clamp(Math.min(A.t-2,52-A.t)/2.5,0,1); if(A.t>=56){ A.phase='depart'; A.t=0; A.v=0; A.doors=0; } break;
+    case 'depart': A.v=Math.min(60,A.v+0.55*dt); A.x+=A.v*dt; if(A.x>1400){ A.phase='away'; A.t=22; } break; }
+  A.m.g.visible=A.phase!=='away'; A.m.g.position.set(170+A.x,0.3,HSR.t1); setCrhDoors(A,Math.round(A.doors*50)/50);
+  if(B.phase==='away'){ B.t-=dt; if(B.t<=0){ B.phase='run'; B.dir=-B.dir; B.x=-B.dir*3300; } }
+  else { B.x+=B.dir*B.v*dt; if(B.dir*B.x>3300){ B.phase='away'; B.t=30+Math.random()*25; } }
+  B.m.g.visible=B.phase!=='away'; B.m.g.position.set(170+B.x,0.3,HSR.t2); B.m.g.rotation.y=B.dir>0?0:Math.PI;
+  CRH.win.emissiveIntensity=0.25+0.95*TODK.win;
+  if(B.phase==='run'){ const d=Math.hypot(Math.max(0,Math.abs(170+B.x-P.x)-100),HSR.t2-P.z); if(d<70&&!B.whoosh){ B.whoosh=true; sfx('whoosh'); } if(d>400) B.whoosh=false; } }
+function planeLights(pl,rt,moving,landing){ const c=pl.lights.geometry.attributes.color, k=0.35+0.65*TODK.lamps, b=(rt*1.1)%1<0.12?1:0, s=(rt*0.9+0.4)%1<0.05?1:0;
+  const set=(i,r,g,bl)=>c.setXYZ(i,r*k,g*k,bl*k); set(0,2.6,0.15,0.1); set(1,0.2,2.4,0.8); set(2,moving?4*b:0,moving?0.2*b:0,moving?0.1*b:0); set(3,moving?4*s:0.6,moving?4*s:0.6,moving?4*s:0.6);
+  for(const i of [4,5,6]) set(i,landing?5:0,landing?4.8:0,landing?4.4:0); c.needsUpdate=true; }
+function updateAir(dt,rt){ if(!APT.dep) return;
+  APT.lightsM.opacity=0.15+0.85*TODK.lamps; APT.poolM.color.setRGB(0.55,0.5,0.42).multiplyScalar(TODK.lamps); AP.tail.emissiveIntensity=0.3*TODK.lamps; const bl=(rt*0.9)%1<0.15?1:0.08; APT.beacon.material.color.setRGB(6*bl,0.4*bl,0.25*bl);
+  const D_=PLN.dep, pd=APT.dep;
+  switch(D_.phase){
+    case 'wait': D_.t-=dt; if(D_.t<=0) Object.assign(D_,{phase:'hold',t:10,z:-330,v:0,y:0,p:0,gear:1}); break;
+    case 'hold': D_.t-=dt; if(D_.t<=0) D_.phase='roll'; break;
+    case 'roll': D_.v+=2.6*dt; D_.z+=D_.v*dt; if(D_.v>70) D_.p=Math.min(0.16,D_.p+dt*0.05); if(D_.v>78){ D_.phase='climb'; D_.t=0; } break;
+    case 'climb': D_.t+=dt; D_.v=Math.min(95,D_.v+1.2*dt); D_.p=Math.min(0.17,D_.p+dt*0.04); D_.z+=D_.v*Math.cos(D_.p)*dt; D_.y+=D_.v*Math.sin(D_.p)*dt; if(D_.t>7) D_.gear=0; if(D_.z>5200||D_.y>700){ D_.phase='wait'; D_.t=40; } break; }
+  pd.g.visible=D_.phase!=='wait'; pd.g.position.set(APT.runX,D_.y,D_.z); pd.g.rotation.set(0,Math.PI/2,-D_.p); pd.gear.visible=!!D_.gear; planeLights(pd,rt,true,D_.phase!=='wait'&&D_.y<400);
+  const A_=PLN.arr, pa=APT.arr;
+  switch(A_.phase){
+    case 'wait': A_.t-=dt; if(A_.t<=0) Object.assign(A_,{phase:'app',z:-4300,v:72,y:0,p:0.05,gear:1}); break;
+    case 'app': { A_.z+=A_.v*dt; const dist=-230-A_.z; A_.y=Math.max(0,dist*0.0524); A_.p=A_.y<14?0.05+0.045*(1-A_.y/14):0.05; if(dist<=0){ A_.phase='rollout'; A_.y=0; } break; }
+    case 'rollout': A_.v=Math.max(14,A_.v-2.4*dt); A_.z+=A_.v*dt; A_.p=Math.max(0,A_.p-dt*0.06); if(A_.z>860){ A_.phase='wait'; A_.t=50; } break; }
+  pa.g.visible=A_.phase!=='wait'; pa.g.position.set(APT.runX,A_.y,A_.z); pa.g.rotation.set(0,Math.PI/2,-A_.p); planeLights(pa,rt,true,A_.phase!=='wait');
+  if(!APT.parkedLit){ APT.parkedLit=true; } for(const p of APT.parked) planeLights(p,rt,false,false);
+  if(AU.ctx&&AU.jet){ let j=0; for(const [st,pl,thr] of [[D_,pd,D_.phase==='roll'||D_.phase==='climb'?1:0.15],[A_,pa,A_.phase==='rollout'?0.8:0.35]]){ if(!pl.g.visible) continue; const d=pl.g.position.distanceTo(camera.position); j=Math.max(j,thr*clamp(260/(d+120),0,1)); }
+    AU.jet.gain.setTargetAtTime(j*0.5*(P.y<-2?0:1)*(zone==='air'?0.45:1),AU.ctx.currentTime,0.3); }
+}
+function transitAudio(){ if(!AU.ctx||!AU.rail) return; let r=0;
+  for(const T of MT){ if(T.phase==='wait') continue; const s=METRO[T.st], d=Math.hypot(s.ox+T.x-P.x,mtTrackZ(T)-P.z); if(P.y<-2) r=Math.max(r,clamp(Math.abs(T.v)/16,0,1)*clamp(60/(d+20),0,1)); }
+  if(RIDE.on) r=Math.max(r,0.25+0.5*clamp(Math.abs(RIDE.T.v)/16,0,1));
+  const A=HT_[0]; if(A.phase!=='away'&&A.phase!=='dwell'){ const d=Math.hypot(170+A.x-P.x,HSR.t1-P.z); r=Math.max(r,clamp(A.v/40,0,1)*clamp(80/(d+40),0,1)*(P.y<-2?0:1)); }
+  AU.rail.gain.setTargetAtTime(r*0.35,AU.ctx.currentTime,0.25); }
+function initTransit(){
+  for(let si=0;si<3;si++) buildMetroStation(si);
+  for(const T of MT){ T.m=metroTrain(); Z.metro.add(T.m.g); setTrainDoors(T,0); }
+  buildHSR(); buildAirport(); buildLinks(); bake(Z.links);
+  for(const im of [Z.metro,Z.hsr,Z.air,Z.links]) im.traverse(o=>{ if(o.isMesh&&!o.isInstancedMesh&&o.geometry&&!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); });
+}
+
+/* =====================================================================
    COLLISION: static boxes/circles in a grid, dynamic colliders, walkable surfaces
    ===================================================================== */
 const GRID=new Map(), CELL=4, DYN=[];
@@ -3009,13 +3804,14 @@ function stairAt(x,z){ const dx=x-STAIR.cx, dz=z-STAIR.cz, r=Math.hypot(dx,dz); 
   const i=Math.min(STAIR.n-1,Math.floor(a/Math.PI*STAIR.n)); return (i+1)*STAIR.rise/STAIR.n; }
 function blocked(x,z,feet){ const f0=feet+STEP*0.9, f1=feet+1.75;
   const k=Math.floor(x/CELL)*100003+Math.floor(z/CELL); const a=GRID.get(k);
-  if(a) for(const c of a) if(hit(c,x,z,f0,f1)) return true;
+  if(a) for(const c of a) if(hit(c,x,z,f0,f1)&&(!c.on||c.on())) return true;
   for(const c of DYN) if(c.on()&&hit(c,x,z,f0,f1)) return true;
   const st=stairAt(x,z); if(st!==null&&st>feet+STEP&&st-0.35<feet+1.75&&feet<5.8) return true;
   if(P.onStair){ const r=Math.hypot(x-STAIR.cx,z-STAIR.cz); if(r<STAIR.r0+0.12||r>STAIR.r1-0.12) return true; }
   return false; }
-function groundAt(x,z,feet){ let best=0;
+function groundAt(x,z,feet){ let best=0; for(const u of UNDER) if(x>u.x0&&x<u.x1&&z>u.z0&&z<u.z1){ best=-1e9; break; }
   for(const s of SURF) if(x>=s.x0&&x<=s.x1&&z>=s.z0&&z<=s.z1&&s.y<=feet+STEP&&s.y>best) best=s.y;
+  for(const r of RAMPS) if(x>=r.x0&&x<=r.x1&&z>=r.z0&&z<=r.z1){ const t=r.ax==='x'?(x-r.x0)/(r.x1-r.x0):(z-r.z0)/(r.z1-r.z0), y=r.ya+(r.yb-r.ya)*t; if(y<=feet+STEP&&y>best) best=y; }
   const st=stairAt(x,z); if(st!==null&&st<=feet+STEP&&st>best) best=st;
   if(inCabBox(x,z)&&Math.abs(LIFT.y-feet)<0.7&&LIFT.y>best-0.01) best=LIFT.y;
   return best; }
@@ -3033,7 +3829,8 @@ try {
   buildCab(); buildUpper(); setProgress(0.64); await nextFrame();
   planDistrict(); setProgress(0.72); await nextFrame();
   buildStreets(); buildCafe(); buildVenues(); towerWindows(); setProgress(0.8); await nextFrame();
-  finishKit(); finishWindows(); finishSigns(); buildCars(); hotelExtras(); bake(Z.district); setProgress(0.86); await nextFrame();
+  finishKit(); finishWindows(); finishSigns(); buildCars(); buildDriveCar(); hotelExtras(); setProgress(0.84); await nextFrame();
+  initTransit(); for(const u of UNDER) surfRects(rectsMinus(u,HOLES),0); bake(Z.district); setProgress(0.86); await nextFrame();
 } catch(e){ console.error(e); fail('城市搭建出错：'+e.message); return; }
 for(const c of COL) gridAdd(c);
 scene.traverse(o=>{ if(o.isInstancedMesh){ if(!o.geometry.boundingBox) o.frustumCulled=false; if(o.instanceColor) o.instanceColor.needsUpdate=true; } });
@@ -3118,12 +3915,15 @@ function zoneAt(x,y,z){
   if(inCabBox(x,z)&&Math.abs(LIFT.y-y)<3) return 'cab';
   if(x>-6.1&&x<6.1&&z<-37.4&&z>-49.2) return 'hall';
   if(x>-23&&x<23&&z<0.1&&z>-37.5) return 'lobby';
+  if(y<-1.5&&stationAt(x,z)>=0) return 'metro';
+  if(y<18&&(inR(HSR,x,z)||(x>30&&x<310&&z>-452.5&&z<-432&&y>0.9))) return 'hsr';
+  if(y<18&&inR(AIR,x,z)) return 'air';
   const C=MAP.cafe; if(C&&x>C.x0&&x<C.x1&&z>C.z0&&z<C.z1) return 'cafe';
   if(y<5) for(const v of VENUES){ const q=v.rect; if(x>q.x0+0.1&&x<q.x1-0.1&&z>q.z0+0.1&&z<q.z1-0.1){ curVenue=v; return 'shop'; } }
   if(Math.abs(x)<40&&z>-60&&z<70) return 'ext';
   return 'street';
 }
-const SEE={ shop:['shop','street','cafe'], ext:['ext','lobby','street','cafe'], street:['street','ext','cafe','shop'], lobby:['lobby','hall','ext'], hall:['hall','lobby','cab'], cab:['cab','hall','upper'], upper:['upper','cab','suite'], suite:['suite','upper'], cafe:['cafe','street','ext','shop'] };
+const SEE={ metro:['metro'], hsr:['hsr','street'], air:['air','street'], shop:['shop','street','cafe'], ext:['ext','lobby','street','cafe'], street:['street','ext','cafe','shop','hsr','air'], lobby:['lobby','hall','ext'], hall:['hall','lobby','cab'], cab:['cab','hall','upper'], upper:['upper','cab','suite'], suite:['suite','upper'], cafe:['cafe','street','ext','shop'] };
 const slots=PL.map(l=>({l,src:null,want:null,k:0})), sslots=SP.map(l=>({l,src:null,want:null,k:0}));
 let lightTimer=0;
 function chooseLights(zone,instant){
@@ -3172,9 +3972,12 @@ ACTS.push({get x(){return D.cafeCounter?D.cafeCounter[0]:0;}, y:1.2, get z(){ret
 for(const v of VENUES) for(const [x,y,z,rad,label,fn] of (v.acts||[])) act(x,y,z,rad,()=>label,fn);
 let curAct=null;
 const tmpF=new THREE.Vector3(), tmpV=new THREE.Vector3();
+const ACT_EXIT={label:()=>'下车',fn:()=>exitCar()};
 function pickAct(){ if(S.lying){ return {label:()=>'起身',fn:()=>{ S.lying=0; }}; }
+  if(DRIVE.on) return Math.abs(DRIVE.v)<2.5?ACT_EXIT:null; if(RIDE.on) return null;
   camera.getWorldDirection(tmpF); let best=null, bs=1e9;
   for(const a of ACTS){ if(!a.ok()) continue; tmpV.set(a.x-camera.position.x,a.y-camera.position.y,a.z-camera.position.z); const d=tmpV.length(); if(d>a.r) continue; const c=tmpV.normalize().dot(tmpF); if(c<0.8) continue; const sc=d*(1.6-c); if(sc<bs){ bs=sc; best=a; } }
+  if(!best){ const c=nearCar(); if(c){ if(!c.act) c.act={label:()=>'上车驾驶',fn:()=>enterCar(c)}; return c.act; } }
   return best; }
 
 /* =====================================================================
@@ -3249,8 +4052,8 @@ function updateAmbient(dt,rt){
 const body=document.body, keys=new Set(); let started=false, locked=false, dragLook=false, lastMX=0, lastMY=0;
 const isTouch=matchMedia('(pointer: coarse)').matches||('ontouchstart' in window&&navigator.maxTouchPoints>0); if(isTouch) body.classList.add('touch');
 addEventListener('keydown',e=>{ if(!started) return; const k=e.key.toLowerCase();
-  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift'].includes(k)){ keys.add(k); e.preventDefault(); }
-  if(k==='e'){ doAct(); } else if(k==='m'){ body.classList.toggle('bigmap'); } else if(k==='t'){ toggleGoto(); } else if(k==='n'){ setTOD(TOD_ORDER[(TOD_ORDER.indexOf(todKey)+1)%4]); } else if(k==='escape'){ $('#goto').hidden=true; $('#help').hidden=true; $('#todpop').hidden=true; body.classList.remove('bigmap'); } });
+  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift',' '].includes(k)){ keys.add(k); e.preventDefault(); }
+  if(k==='e'){ doAct(); } else if(k==='v'){ if(DRIVE.on){ DRIVE.cam=1-DRIVE.cam; DRIVE.look=DRIVE.lookP=0; } } else if(k==='h'){ if(DRIVE.on&&!e.repeat) sfx('horn'); } else if(k==='m'){ body.classList.toggle('bigmap'); } else if(k==='t'){ toggleGoto(); } else if(k==='n'){ setTOD(TOD_ORDER[(TOD_ORDER.indexOf(todKey)+1)%4]); } else if(k==='escape'){ $('#goto').hidden=true; $('#help').hidden=true; $('#todpop').hidden=true; body.classList.remove('bigmap'); } });
 addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));
 addEventListener('blur',()=>keys.clear());
 canvasEl.addEventListener('click',()=>{ if(!started) return; if(!isTouch&&!locked){ try{ const p=canvasEl.requestPointerLock&&canvasEl.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ dragLook=true; }); }catch(e){ dragLook=true; } } else if(locked) doAct(); });
@@ -3258,7 +4061,7 @@ document.addEventListener('pointerlockchange',()=>{ locked=document.pointerLockE
 document.addEventListener('pointerlockerror',()=>{ dragLook=true; $('#resume').hidden=true; toast('按住鼠标拖动即可环顾四周'); });
 addEventListener('mousemove',e=>{ if(!started) return; if(locked){ look(e.movementX,e.movementY); } else if(dragLook&&(e.buttons&1)){ look(e.clientX-lastMX,e.clientY-lastMY); } lastMX=e.clientX; lastMY=e.clientY; });
 addEventListener('mousedown',e=>{ lastMX=e.clientX; lastMY=e.clientY; });
-function look(dx,dy){ if(S.lying) return; P.yaw-=dx*0.0022; P.pitch=clamp(P.pitch-dy*0.0022,-1.35,1.35); }
+function look(dx,dy){ if(S.lying) return; if(DRIVE.on){ DRIVE.look=clamp(DRIVE.look-dx*0.0022,-2.6,2.6); DRIVE.lookP=clamp(DRIVE.lookP-dy*0.0022,-0.5,0.6); DRIVE.lookT=performance.now(); return; } P.yaw-=dx*0.0022; P.pitch=clamp(P.pitch-dy*0.0022,-1.35,1.35); }
 // touch: joystick + look
 const joy={id:null,x:0,y:0,cx:0,cy:0}, lookT={id:null,x:0,y:0};
 const joyEl=$('#joy'), joyK=$('#joyk');
@@ -3276,7 +4079,7 @@ let lastTap=0; function onTap(el,fn){ let down=null;
   el.addEventListener('pointerup',e=>{ if(e.pointerId!==down) return; down=null; e.stopPropagation(); lastTap=performance.now(); fn(); });
   el.addEventListener('pointercancel',()=>{ down=null; });
   el.addEventListener('click',e=>{ e.stopPropagation(); if(performance.now()-lastTap<700) return; fn(); }); }
-onTap($('#t-act'),()=>doAct()); onTap($('#prompt'),()=>doAct()); onTap($('#t-run'),()=>{ P.run=!P.run; $('#t-run').textContent=P.run?'慢走':'奔跑'; });
+onTap($('#t-act'),()=>doAct()); onTap($('#prompt'),()=>doAct()); onTap($('#t-run'),()=>{ if(DRIVE.on){ DRIVE.cam=1-DRIVE.cam; DRIVE.look=DRIVE.lookP=0; return; } P.run=!P.run; $('#t-run').textContent=P.run?'慢走':'奔跑'; });
 function doAct(){ if(!started) return; const a=pickAct(); if(a) a.fn(); }
 
 /* =====================================================================
@@ -3287,10 +4090,12 @@ let toastT=0; function toast(msg){ const el=$('#toast'); el.textContent=msg; el.
 const GOTO=[
   {n:'酒店前庭',e:'Forecourt',p:[9.8,64],y:0.06,yaw:0.22},{n:'酒店大堂',e:'Grand Lobby',p:[0,-8],y:0,yaw:0},{n:'电梯厅',e:'Lift Hall',p:[0,-41],y:0,yaw:-1.2},
   {n:'38 层走廊',e:'Floor 38',p:[-4,-45],y:H,yaw:Math.PI/2},{n:'3808 套房',e:'Suite 3808',p:[-24,-51],y:H,yaw:0,suite:true},{n:'咖啡馆',e:'Café Oriel',p:[16,98],y:0.15,yaw:Math.PI*0.25,cafe:true},
-  {n:'澜悦大道',e:'Avenue',p:[-60,68],y:0.15,yaw:-Math.PI/2},{n:'梧桐街',e:'Plane Tree St.',p:[40,196],y:0,yaw:Math.PI/2},{n:'东岸路',e:'East Bank Rd.',p:[166,120],y:0.15,yaw:0},{n:'酒店花园',e:'Gardens',p:[-80,-40],y:0,yaw:Math.PI*0.7}];
+  {n:'澜悦大道',e:'Avenue',p:[-60,68],y:0.15,yaw:-Math.PI/2},{n:'梧桐街',e:'Plane Tree St.',p:[40,196],y:0,yaw:Math.PI/2},{n:'东岸路',e:'East Bank Rd.',p:[166,120],y:0.15,yaw:0},{n:'酒店花园',e:'Gardens',p:[-80,-40],y:0,yaw:Math.PI*0.7},
+  {n:'澜悦花园站',e:'Metro · Line 1',p:[-64,34],y:CC_Y,yaw:Math.PI/2},{n:'地铁站台',e:'Metro Platform',p:[-80,38],y:PL_Y,yaw:0},{n:'澜城南站',e:'Railway Station',p:[170,-387],y:0.15,yaw:0},{n:'高铁站台',e:'Platform 1',p:[140,-444],y:1.55,yaw:-0.5},
+  {n:'国际机场',e:'Airport T1',p:[474,-90],y:0.15,yaw:-Math.PI/2},{n:'登机口',e:'Gates · Apron View',p:[542.5,-72],y:0.15,yaw:-Math.PI/2+0.35},{n:'机场停车场',e:'Car Park',p:[436,-40],y:0,yaw:Math.PI/2}];
 for(const v of VENUES) if(v.spawn) GOTO.push({n:v.name,e:v.en,p:v.spawn,y:0.15,yaw:v.spawnYaw});
 const goList=$('#go-list'); GOTO.forEach(g=>{ const b=document.createElement('button'); b.className='go-item'; b.innerHTML=`<b>${g.n}</b><span>${g.e}</span>`; b.onclick=()=>{ teleport(g); toggleGoto(false); }; goList.appendChild(b); });
-function teleport(g){ P.x=g.p[0]; P.z=g.p[1]; P.y=g.y; P.vx=P.vz=P.vy=0; P.yaw=g.yaw; P.pitch=0; P.inCab=false; S.lying=0;
+function teleport(g){ if(DRIVE.on) exitCar(true); if(RIDE.on){ RIDE.on=false; RIDE.T=null; } RIDE.fade=0; RIDE.fadeDir=0; P.x=g.p[0]; P.z=g.p[1]; P.y=g.y; P.vx=P.vz=P.vy=0; P.yaw=g.yaw; P.pitch=0; P.inCab=false; S.lying=0;
   if(g.cafe&&MAP.cafe){ P.x=MAP.cafe.x0+4; P.z=MAP.cafe.z0+6; }
   if(g.suite){ S.suiteLocked=false; S.suiteTarget=1; S.suite=1; }
   if(g.y>=H-1&&LIFT.floor===0&&LIFT.state==='idle'){ } chooseLights(zoneAt(P.x,P.y,P.z),true); toast(`已到达 · ${g.n}`); }
@@ -3306,31 +4111,46 @@ $('#b-q').onclick=()=>{ Q.hi=!Q.hi; $('#b-q').textContent=Q.hi?'高画质':'流�
 $('#b-snd').onclick=()=>{ AU.on=!AU.on; if(AU.master) AU.master.gain.setTargetAtTime(AU.on?0.85:0,AU.ctx.currentTime,0.05); $('#b-snd').textContent=AU.on?'声音 开':'声音 关'; };
 $('#resume').onclick=()=>canvasEl.click();
 // minimap
-const mapC=$('#map'), mapX=mapC.getContext('2d'); const mapBase=document.createElement('canvas'); mapBase.width=mapBase.height=704;
-function drawMapBase(){ const x=mapBase.getContext('2d'), S2=704/620, o=310; const tx=v=>(v+o)*S2, tz=v=>(v+o)*S2;
-  x.fillStyle='#0b0c10'; x.fillRect(0,0,704,704);
-  x.fillStyle='#1c2a1f'; x.fillRect(tx(-159),tz(-179),318*S2,247*S2);
-  for(const b of MAP.blocks){ x.fillStyle='#16171c'; x.fillRect(tx(b.x0),tz(b.z0),(b.x1-b.x0)*S2,(b.z1-b.z0)*S2); }
+const mapC=$('#map'), mapX=mapC.getContext('2d'); const MAPV={x0:-330,z0:-520,size:1520}, MAPS=2048, MK=MAPS/MAPV.size; const mapBase=document.createElement('canvas'); mapBase.width=mapBase.height=MAPS;
+const PLACES=[{n:'澜悦酒店',x:0,z:-60},{n:'澜城南站',x:170,z:-400},{n:'高铁 1 站台',x:250,z:-444},{n:'国际机场 T1',x:507,z:-160},{n:'停机坪',x:660,z:240},{n:'跑道 18/36',x:910,z:960},{n:'塔台',x:700,z:-350},{n:'P1 停车场',x:370,z:-180},{n:'机场路',x:370,z:100}];
+function drawMapBase(){ const x=mapBase.getContext('2d'), S2=MK; const tx=v=>(v-MAPV.x0)*S2, tz=v=>(v-MAPV.z0)*S2, rr=(q,col)=>{ x.fillStyle=col; x.fillRect(tx(q.x0),tz(q.z0),(q.x1-q.x0)*S2,(q.z1-q.z0)*S2); };
+  x.fillStyle='#0b0c10'; x.fillRect(0,0,MAPS,MAPS);
+  rr(AIRR,'#17221a'); rr({x0:0,x1:340,z0:-440,z1:-300},'#17221a'); rr({x0:-159,x1:159,z0:-179,z1:68},'#1c2a1f');
+  for(const b of MAP.blocks) rr(b,'#16171c');
   x.fillStyle='#2c2d33'; for(const R of ROADS_EW) x.fillRect(tx(-300),tz(R.z-R.w/2),600*S2,R.w*S2); for(const R of ROADS_NS) x.fillRect(tx(R.x-R.w/2),tz(-300),R.w*S2,600*S2); x.fillRect(tx(-7),tz(44),14*S2,256*S2);
+  for(const q of MAP.roads) rr(q,'#2c2d33');
+  rr({x0:545,x1:780,z0:-260,z1:220},'#3b3d42'); for(const q of [{x0:800,x1:823,z0:-360,z1:880},{x0:780,x1:800,z0:-240,z1:-217},{x0:780,x1:800,z0:170,z1:193},{x0:823,x1:880,z0:-352,z1:-329},{x0:823,x1:880,z0:480,z1:503},{x0:823,x1:880,z0:850,z1:873}]) rr(q,'#2e3034');
+  rr({x0:880,x1:940,z0:-360,z1:900},'#26272c'); x.fillStyle='rgba(240,240,236,.6)'; for(let z=-240;z<780;z+=50) x.fillRect(tx(909.5),tz(z-15),1*S2,30*S2);
+  rr({x0:580,x1:700,z0:300,z1:390},'#34363e'); x.fillStyle='#8a8f98'; x.beginPath(); x.arc(tx(700),tz(-330),4*S2,0,TAU); x.fill();
+  rr({x0:-3500,x1:3500,z0:-466,z1:-448},'#1d1e22'); x.fillStyle='#565a62'; for(const z of [HSR.t1,HSR.t2]) x.fillRect(0,tz(z)-1,MAPS,2);
+  rr({x0:30,x1:310,z0:-452,z1:-432},'#4a4c52'); rr(HSR,'#6b4a2a'); rr({x0:90,x1:250,z0:-382,z1:-366},'#2e2f35');
+  rr(AIR,'#6b4a2a'); for(const G of APT.gates){ x.fillStyle='#e8e4da'; x.save(); x.translate(tx(562+30*G.sc),tz(G.z)); x.fillRect(-30*G.sc*S2,-3*G.sc*S2,60*G.sc*S2,6*G.sc*S2); x.fillRect(-6*G.sc*S2,-30*G.sc*S2,12*G.sc*S2,60*G.sc*S2); x.restore(); }
   for(const b of MAP.bldgs){ x.fillStyle=b.cafe||b.venue?'#6b4a2a':'#34363e'; x.fillRect(tx(b.x0),tz(b.z0),(b.x1-b.x0)*S2,(b.z1-b.z0)*S2); x.strokeStyle='rgba(201,168,106,.35)'; x.lineWidth=1; x.strokeRect(tx(b.x0)+0.5,tz(b.z0)+0.5,(b.x1-b.x0)*S2-1,(b.z1-b.z0)*S2-1); }
   x.fillStyle='#c9a86a'; x.fillRect(tx(-24.5),tz(-50),49*S2,50.5*S2); x.fillStyle='#e8d5a6'; x.fillRect(tx(-18),tz(-44),36*S2,36*S2);
   x.strokeStyle='#5c6f7a'; x.lineWidth=2; x.beginPath(); x.arc(tx(0),tz(30),7*S2,0,TAU); x.stroke();
-  x.font=`500 18px ${CNF}`; x.fillStyle='rgba(242,236,224,.8)'; x.textAlign='center'; x.fillText('澜悦酒店',tx(0),tz(-56)); if(MAP.cafe){ x.fillText('咖啡馆',tx((MAP.cafe.x0+MAP.cafe.x1)/2),tz(MAP.cafe.z0)-6); }
-  for(const v of VENUES){ x.fillStyle='#ecd6a2'; x.beginPath(); x.arc(tx(v.door[0]),tz(v.door[1]),4,0,TAU); x.fill(); }
-  x.font=`400 14px ${CNF}`; x.fillStyle='rgba(236,214,162,.7)'; x.fillText('澜悦大道',tx(-100),tz(80)+5); x.fillText('梧桐街',tx(-100),tz(200)+5); x.fillText('南环路',tx(-100),tz(-190)+5);
-  x.save(); x.translate(tx(-170)+5,tz(-100)); x.rotate(-Math.PI/2); x.fillText('西岸路',0,0); x.restore(); x.save(); x.translate(tx(170)+5,tz(-100)); x.rotate(-Math.PI/2); x.fillText('东岸路',0,0); x.restore();
-  x.save(); x.translate(tx(0)+5,tz(250)); x.rotate(-Math.PI/2); x.fillText('棕榈林荫道',0,0); x.restore(); }
+  x.strokeStyle='rgba(200,16,46,.55)'; x.lineWidth=4; x.setLineDash([10,8]); x.beginPath(); METRO.forEach((q,i)=>{ const f=i?x.lineTo:x.moveTo; f.call(x,tx(q.ox),tz(q.oz)); }); x.closePath(); x.stroke(); x.setLineDash([]);
+  for(const q of METRO){ x.fillStyle=MLINE; x.beginPath(); x.arc(tx(q.sx1),tz(q.oz),11,0,TAU); x.fill(); x.fillStyle='#fff'; x.font=`700 14px ${UIF}`; x.textAlign='center'; x.textBaseline='middle'; x.fillText('M',tx(q.sx1),tz(q.oz)+1); x.textBaseline='alphabetic'; }
+  x.font=`500 22px ${CNF}`; x.fillStyle='rgba(242,236,224,.8)'; x.textAlign='center'; x.fillText('澜悦酒店',tx(0),tz(-56)); if(MAP.cafe){ x.fillText('咖啡馆',tx((MAP.cafe.x0+MAP.cafe.x1)/2),tz(MAP.cafe.z0)-6); }
+  for(const q of PLACES.slice(1)) x.fillText(q.n,tx(q.x),tz(q.z));
+  for(const v of VENUES){ x.fillStyle='#ecd6a2'; x.beginPath(); x.arc(tx(v.door[0]),tz(v.door[1]),4.5,0,TAU); x.fill(); }
+  x.font=`400 17px ${CNF}`; x.fillStyle='rgba(236,214,162,.7)'; x.fillText('澜悦大道',tx(-100),tz(80)+6); x.fillText('梧桐街',tx(-100),tz(200)+6); x.fillText('南环路',tx(-100),tz(-190)+6);
+  x.save(); x.translate(tx(-170)+6,tz(-100)); x.rotate(-Math.PI/2); x.fillText('西岸路',0,0); x.restore(); x.save(); x.translate(tx(170)+6,tz(-100)); x.rotate(-Math.PI/2); x.fillText('东岸路',0,0); x.restore();
+  x.save(); x.translate(tx(0)+6,tz(250)); x.rotate(-Math.PI/2); x.fillText('棕榈林荫道',0,0); x.restore(); x.save(); x.translate(tx(170)+6,tz(-330)); x.rotate(-Math.PI/2); x.fillText('站前路',0,0); x.restore(); }
 function drawMap(){ const W=mapC.width, big=body.classList.contains('bigmap'); mapX.clearRect(0,0,W,W);
-  if(big){ mapX.drawImage(mapBase,0,0,W,W); const s=W/620, px=(P.x+310)*s, pz=(P.z+310)*s;
-    mapX.font=`500 ${Math.round(W/34)}px ${CNF}`; mapX.textAlign='center'; mapX.lineWidth=3; mapX.strokeStyle='rgba(6,7,10,.85)'; mapX.fillStyle='#f2ece0';
-    for(const v of VENUES){ const lx=(v.door[0]+310)*s, ly=(v.door[1]+310)*s-W/70; mapX.strokeText(v.name,lx,ly); mapX.fillText(v.name,lx,ly); }
-    arrow(px,pz,W/40); return; }
-  const span=190, s=W/span; mapX.save(); mapX.translate(W/2,W/2); mapX.rotate(P.yaw); const k=704/620; mapX.drawImage(mapBase,(P.x+310)*k-span*k/2,(P.z+310)*k-span*k/2,span*k,span*k,-W/2,-W/2,W,W); mapX.restore(); arrow(W/2,W/2,W/22,true);
+  if(big){ const span=780, cx=clamp(P.x,MAPV.x0+span/2,MAPV.x0+MAPV.size-span/2), cz=clamp(P.z,MAPV.z0+span/2,MAPV.z0+MAPV.size-span/2), s=W/span, sx=v=>(v-cx+span/2)*s, sz=v=>(v-cz+span/2)*s;
+    mapX.drawImage(mapBase,(cx-span/2-MAPV.x0)*MK,(cz-span/2-MAPV.z0)*MK,span*MK,span*MK,0,0,W,W);
+    mapX.font=`500 ${Math.round(W/40)}px ${CNF}`; mapX.textAlign='center'; mapX.lineWidth=3; mapX.strokeStyle='rgba(6,7,10,.85)'; mapX.fillStyle='#f2ece0';
+    for(const v of VENUES){ const lx=sx(v.door[0]), ly=sz(v.door[1])-W/70; if(lx<0||lx>W||ly<0||ly>W) continue; mapX.strokeText(v.name,lx,ly); mapX.fillText(v.name,lx,ly); }
+    for(const q of METRO){ const lx=sx(q.sx1), ly=sz(q.oz)-W/45; if(lx<0||lx>W||ly<0||ly>W) continue; mapX.strokeText(q.n+'站',lx,ly); mapX.fillText(q.n+'站',lx,ly); }
+    arrow(sx(P.x),sz(P.z),W/40); return; }
+  const span=190; mapX.save(); mapX.translate(W/2,W/2); mapX.rotate(P.yaw); mapX.drawImage(mapBase,(P.x-MAPV.x0)*MK-span*MK/2,(P.z-MAPV.z0)*MK-span*MK/2,span*MK,span*MK,-W/2,-W/2,W,W); mapX.restore(); arrow(W/2,W/2,W/22,true);
   mapX.strokeStyle='rgba(242,236,224,.25)'; mapX.lineWidth=2; mapX.strokeRect(1,1,W-2,W-2);
-  if(P.y>20){ mapX.fillStyle='rgba(6,7,10,.6)'; mapX.fillRect(0,W-44,W,44); mapX.fillStyle='#ecd6a2'; mapX.font=`500 22px ${UIF}`; mapX.textAlign='center'; mapX.fillText('FLOOR 38',W/2,W-14); } }
+  const tag=P.y>20?'FLOOR 38':RIDE.on?'METRO · LINE 1':P.y<-2?(P.y<-8?'METRO · B2':'METRO · B1'):null;
+  if(tag){ mapX.fillStyle='rgba(6,7,10,.6)'; mapX.fillRect(0,W-44,W,44); mapX.fillStyle='#ecd6a2'; mapX.font=`500 22px ${UIF}`; mapX.textAlign='center'; mapX.fillText(tag,W/2,W-14); } }
 function arrow(x,y,s,up){ mapX.save(); mapX.translate(x,y); if(!up) mapX.rotate(-P.yaw); mapX.fillStyle='#ecd6a2'; mapX.strokeStyle='#06070a'; mapX.lineWidth=2; mapX.beginPath(); mapX.moveTo(0,-s); mapX.lineTo(s*0.7,s*0.8); mapX.lineTo(0,s*0.35); mapX.lineTo(-s*0.7,s*0.8); mapX.closePath(); mapX.fill(); mapX.stroke(); mapX.restore(); }
-const ZNAME={ext:'酒店前庭',lobby:'酒店大堂',hall:'电梯厅',cab:'电梯',upper:'38 层走廊',suite:'3808 套房',cafe:'Café Oriel 咖啡馆'};
-function streetName(){ const cands=[['澜悦大道',Math.abs(P.z-80)],['梧桐街',Math.abs(P.z-200)],['南环路',Math.abs(P.z+190)],['西岸路',Math.abs(P.x+170)],['东岸路',Math.abs(P.x-170)],['棕榈林荫道',P.z>40?Math.abs(P.x):999]]; cands.sort((a,b)=>a[1]-b[1]); return cands[0][1]<30?cands[0][0]:(Math.abs(P.x)<160&&P.z<68&&P.z>-180?'酒店花园':'街区'); }
+const ZNAME={hsr:'澜城南站 · 高铁',air:'澜城国际机场 · T1',ext:'酒店前庭',lobby:'酒店大堂',hall:'电梯厅',cab:'电梯',upper:'38 层走廊',suite:'3808 套房',cafe:'Café Oriel 咖啡馆'};
+function streetName(){ if(P.x>300) return P.x<440&&P.z<67.7?'P1 停车场':P.x>438?'航站楼出发车道':'机场路'; if(P.z<-300) return P.z>-352?'站前路':'南站广场';
+  const cands=[['澜悦大道',Math.abs(P.z-80)],['梧桐街',Math.abs(P.z-200)],['南环路',Math.abs(P.z+190)],['西岸路',Math.abs(P.x+170)],['东岸路',Math.abs(P.x-170)],['棕榈林荫道',P.z>40?Math.abs(P.x):999]]; cands.sort((a,b)=>a[1]-b[1]); return cands[0][1]<30?cands[0][0]:(Math.abs(P.x)<160&&P.z<68&&P.z>-180?'酒店花园':'街区'); }
 
 /* =====================================================================
    SOUND
@@ -3344,7 +4164,7 @@ function audioInit(){
   AU.noise=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate); { const d=AU.noise.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; }
   AU.music=ctx.createGain(); AU.music.gain.value=0; AU.music.connect(AU.master); const ms=ctx.createGain(); ms.gain.value=0.9; AU.music.connect(ms); ms.connect(AU.verb);
   const bed=(type,f,q)=>{ const s=ctx.createBufferSource(); s.buffer=AU.noise; s.loop=true; const fl=ctx.createBiquadFilter(); fl.type=type; fl.frequency.value=f; fl.Q.value=q; const g=ctx.createGain(); g.gain.value=0; s.connect(fl); fl.connect(g); g.connect(AU.master); s.start(); return g; };
-  AU.fount=bed('bandpass',1300,0.5); AU.city=bed('lowpass',300,0.7); AU.room=bed('lowpass',180,0.5); AU.hum=bed('bandpass',160,1.2);
+  AU.fount=bed('bandpass',1300,0.5); AU.city=bed('lowpass',300,0.7); AU.room=bed('lowpass',180,0.5); AU.hum=bed('bandpass',160,1.2); AU.rail=bed('lowpass',150,0.9); AU.jet=bed('lowpass',420,0.6);
   AU.next=ctx.currentTime+0.3;
 }
 const midi=n=>440*Math.pow(2,(n-69)/12);
@@ -3374,6 +4194,14 @@ function sfx(name){ if(!AU.ctx) return; const w=AU.ctx.currentTime+0.01;
     case 'bell': for(const [m,a] of [[1,0.08],[2.4,0.03],[4.1,0.015]]) tone(w,1760*m,1.8/m,a); break;
     case 'piano': { const seq=[60,64,67,71,72,71,67,64,65,69,72,76,74,71,67,62]; seq.forEach((n,i)=>pluck(w+i*0.22,n,0.07,AU.master)); pluck(w+3.6,48,0.08,AU.master); pluck(w+3.6,55,0.06,AU.master); break; }
     case 'steam': noiseShot(w,1.6,'highpass',3000,6000,0.04,0.7); noiseShot(w+1.2,0.8,'bandpass',800,500,0.03,1); break;
+    case 'engine': noiseShot(w,0.6,'lowpass',180,900,0.09,1); for(let i=0;i<6;i++) tone(w+i*0.06,55+i*9,0.09,0.04,'sawtooth',false); break;
+    case 'bump': noiseShot(w,0.25,'lowpass',400,120,0.2,0.8); tone(w,70,0.3,0.14,'sine',false); break;
+    case 'crash': noiseShot(w,0.9,'lowpass',2600,200,0.4,0.7); noiseShot(w+0.04,0.5,'highpass',3000,6500,0.14,0.8); tone(w,52,0.5,0.25,'sine',false); break;
+    case 'horn': for(const f of [415,523]) tone(w,f,0.5,0.045,'square',false); break;
+    case 'chime': for(let i=0;i<6;i++) tone(w+i*0.32,i%2?660:880,0.22,0.035,'square',false); break;
+    case 'mtopen': noiseShot(w,1.1,'highpass',1800,900,0.05,0.7); for(const [i,n] of [79,76,72].entries()) tone(w+0.3+i*0.35,midi(n),1.2,0.035); break;
+    case 'mtin': noiseShot(w,9,'lowpass',160,700,0.12,0.8); break;
+    case 'whoosh': noiseShot(w,2.2,'bandpass',300,2400,0.32,0.6); noiseShot(w+0.3,2.6,'lowpass',900,140,0.26,0.7); break;
   } }
 function footstep(surface){ if(!AU.ctx) return; const w=AU.ctx.currentTime+0.005;
   if(surface==='marble'){ noiseShot(w,0.09,'bandpass',2400,1600,0.025,1.4); tone(w,95,0.09,0.03,'sine',false); }
@@ -3382,12 +4210,12 @@ function footstep(surface){ if(!AU.ctx) return; const w=AU.ctx.currentTime+0.005
   else noiseShot(w,0.14,'lowpass',400,200,0.03,0.7); }
 function audioFrame(dt){
   if(!AU.ctx) return; const c=AU.ctx, now=c.currentTime; const set=(p,v)=>p.setTargetAtTime(v,now,0.4);
-  const indoorMusic=zone==='lobby'||zone==='hall'||zone==='cab'||zone==='cafe'||zone==='shop';
+  const indoorMusic=zone==='lobby'||zone==='hall'||zone==='cab'||zone==='cafe'||zone==='shop'||zone==='air';
   if(indoorMusic||AU.musicLevel>0.01) scheduleMusic(); else AU.next=Math.max(AU.next,now+0.2);
   AU.musicLevel=indoorMusic?0.5:(zone==='ext'&&Math.hypot(P.x,P.z)<30?0.12:0); set(AU.music.gain,AU.musicLevel);
   const fd=Math.hypot(P.x,P.z-30); set(AU.fount.gain,P.y<20?0.22*clamp(1-fd/70,0,1)*(zone==='lobby'?0.2:1):0);
   set(AU.city.gain,zone==='street'?0.07:zone==='ext'?0.05:zone==='cafe'||zone==='shop'?0.03:zone==='suite'?0.015*(1-S.curt*0.7):0.01);
-  set(AU.room.gain,0.03); set(AU.hum.gain,LIFT.state==='moving'&&P.inCab?0.05:0);
+  set(AU.room.gain,zone==='metro'?0.05:0.03); set(AU.hum.gain,LIFT.state==='moving'&&P.inCab?0.05:0); carSound(DRIVE.on); transitAudio();
 }
 
 /* =====================================================================
@@ -3410,37 +4238,49 @@ const ENV_MATS=[]; const ENVS={};
 scene.traverse(o=>{ for(const m of (Array.isArray(o.material)?o.material:[o.material])){ if(m&&m.isMeshStandardMaterial&&m.userData.envBase===undefined){ m.userData.envBase=m.envMapIntensity; ENV_MATS.push(m); } }
   if(o.isMesh&&!o.userData.noCast){ const m=Array.isArray(o.material)?o.material[0]:o.material; if(m&&m.isMeshStandardMaterial){ o.receiveShadow=true; o.castShadow=!m.transparent&&m!==M.crystal; } } });
 guardReflectors();
-const EXPOZ={shop:0.95,ext:1.1,street:1.12,lobby:0.84,hall:0.9,cab:0.9,upper:0.95,suite:1.0,cafe:0.92};
+const EXPOZ={metro:0.95,hsr:0.95,air:0.95,shop:0.95,ext:1.1,street:1.12,lobby:0.84,hall:0.9,cab:0.9,upper:0.95,suite:1.0,cafe:0.92};
 let stepAcc=0;
 function simulate(dt,rt){
+  updateMetro(dt); updateHSR(dt); updateAir(dt,rt);
   // movement
+  let lt=0, run=false;
+  if(DRIVE.on){ driveStep(dt); driveCamera(dt); }
+  else {
   const f=(keys.has('w')||keys.has('arrowup')?1:0)-(keys.has('s')||keys.has('arrowdown')?1:0)-joy.y;
   const s=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0)+joy.x;
-  const run=keys.has('shift')||P.run; const speed=S.lying?0:(run?4.4:1.75);
+  run=keys.has('shift')||P.run; const speed=S.lying?0:(run?4.4:1.75);
   const fx=-Math.sin(P.yaw), fz=-Math.cos(P.yaw), rx=Math.cos(P.yaw), rz=-Math.sin(P.yaw);
   let mx=fx*f+rx*s, mz=fz*f+rz*s; const ml=Math.hypot(mx,mz); if(ml>1){ mx/=ml; mz/=ml; }
   const k=Math.min(1,dt*9); P.vx+=(mx*speed-P.vx)*k; P.vz+=(mz*speed-P.vz)*k;
   updateLift(dt);
+  if(RIDE.on) rideMove(dt);
+  else {
   const nx=P.x+P.vx*dt, nz=P.z+P.vz*dt;
   if(!blocked(nx,P.z,P.y)) P.x=nx; else P.vx*=0.2;
   if(!blocked(P.x,nz,P.y)) P.z=nz; else P.vz*=0.2;
   P.inCab=inCabBox(P.x,P.z)&&(P.inCab||Math.abs(P.y-LIFT.y)<0.9);
   if(P.inCab){ P.y=LIFT.y; P.vy=0; }
-  else { const g=groundAt(P.x,P.z,P.y); if(P.y>g+0.01){ P.vy-=9.8*dt; P.y=Math.max(g,P.y+P.vy*dt); } else { P.y+= (g-P.y)*Math.min(1,dt*18); if(Math.abs(g-P.y)<0.01) P.y=g; P.vy=0; } }
+  else { const g=groundAt(P.x,P.z,P.y); if(P.y>g+0.01){ if(P.y-g<0.36&&P.vy>-1){ P.y+=(g-P.y)*Math.min(1,dt*20); P.vy=0; } else { P.vy-=9.8*dt; P.y=Math.max(g,P.y+P.vy*dt); } } else { P.y+= (g-P.y)*Math.min(1,dt*18); if(Math.abs(g-P.y)<0.01) P.y=g; P.vy=0; } }
+  }
   P.onStair=stairAt(P.x,P.z)!==null&&P.y>0.2&&P.y<6.05;
   const sp=Math.hypot(P.vx,P.vz); P.bob+=sp*dt*1.9; stepAcc+=sp*dt;
-  if(stepAcc>(run?1.25:0.72)){ stepAcc=0; footstep(zone==='shop'&&curVenue?curVenue.step:zone==='lobby'||zone==='hall'||zone==='cafe'?'marble':zone==='upper'?'carpet':zone==='suite'?(P.z<-49.5?'wood':'marble'):zone==='cab'?'carpet':'stone'); }
+  if(stepAcc>(run?1.25:0.72)&&!DRIVE.on){ stepAcc=0; footstep(zone==='shop'&&curVenue?curVenue.step:zone==='metro'||zone==='hsr'||zone==='air'?'marble':zone==='lobby'||zone==='hall'||zone==='cafe'?'marble':zone==='upper'?'carpet':zone==='suite'?(P.z<-49.5?'wood':'marble'):zone==='cab'?'carpet':'stone'); }
   // camera
-  S.lieT+=(S.lying?1:-1)*dt/1.6; S.lieT=clamp(S.lieT,0,1); const lt=ease(S.lieT);
+  S.lieT+=(S.lying?1:-1)*dt/1.6; S.lieT=clamp(S.lieT,0,1); lt=ease(S.lieT);
   const walkAmp=clamp(sp/1.8,0,1)*(run?1.4:1);
   let cx=P.x, cy=P.y+1.62+Math.abs(Math.sin(P.bob*Math.PI))*0.03*walkAmp-0.015*walkAmp, cz=P.z, yaw=P.yaw, pitch=P.pitch, roll=Math.sin(P.bob*Math.PI)*0.003*walkAmp;
   if(lt>0){ cx=lerp(cx,-29.95,lt); cy=lerp(cy,H+0.97,lt); cz=lerp(cz,-54.45,lt); yaw=lerp(yaw,Math.atan2(-(-26.3+29.95),-(-55.2+54.45)),lt); pitch=lerp(pitch,0.55,lt); roll=lerp(roll,-0.1,lt); }
   camera.position.set(cx,cy,cz); camera.rotation.set(pitch,yaw,roll); camera.near=S.card>=0?0.03:0.05; camera.updateProjectionMatrix(); camera.updateMatrixWorld();
+  }
   sky.position.copy(camera.position);
   // zones and visibility
   zone=zoneAt(P.x,P.y,P.z);
   const high=P.y>20||(P.inCab&&LIFT.y>20);
-  Z.site.visible=Z.tower.visible=!high; Z.district.visible=!(zone==='cab'||(zone==='upper'&&(S.suite<0.02||P.x>-12))); /* skip the whole city inside closed spaces */ Z.lobby.visible=!high&&Math.hypot(P.x,P.z+20)<280; Z.upper.visible=high||(P.inCab&&LIFT.state==='moving');
+  const deep=RIDE.on||P.y<-7||(P.y<-2&&!METRO.some(q=>Math.abs(P.x-q.sx0)<26&&Math.abs(P.z-q.oz)<14));   // underground, away from the stairs up: draw only the station
+  Z.site.visible=Z.tower.visible=!high&&!deep; Z.district.visible=!deep&&!(zone==='cab'||(zone==='upper'&&(S.suite<0.02||P.x>-12))); /* skip the whole city inside closed spaces */ Z.lobby.visible=!high&&!deep&&Math.hypot(P.x,P.z+20)<280; Z.upper.visible=high||(P.inCab&&LIFT.state==='moving');
+  Z.city.visible=Z.hsr.visible=Z.air.visible=Z.links.visible=!deep&&zone!=='cab';
+  Z.metro.visible=P.y<-1||RIDE.on||METRO.some(q=>Math.abs(P.x-q.sx1)<50&&Math.abs(P.z-q.oz)<40);
+  if(Z.metro.visible!==D.metroVis){ D.metroVis=Z.metro.visible; D.sunDirty=true; }
   D.refl.visible=Q.hi&&!high&&(zone==='lobby'||zone==='hall'||(zone==='ext'&&P.z<40&&Math.abs(P.x)<30));
   D.wet.visible=Q.hi&&!high&&(zone==='ext'||(zone==='street'&&Math.abs(P.x)<60&&P.z<280&&P.z>30));
   D.winRefl.visible=Q.hi&&zone==='suite';
@@ -3456,16 +4296,17 @@ function simulate(dt,rt){
   if(D.sunDirty){ for(const m of KITMESH) m.castShadow=true; SUN.shadow.needsUpdate=true; for(const l of SP) l.shadow.needsUpdate=false; renderer.shadowMap.needsUpdate=true; D.sunDirty=false; }
   else if(D.spotDirty){ for(const m of KITMESH) m.castShadow=false; for(const l of SP) l.shadow.needsUpdate=true; renderer.shadowMap.needsUpdate=true; D.spotDirty=false; }
   const envK=zone==='suite'?0.12+0.78*S.on*Math.max(S.ceil,0.6*Math.max(S.lampL,S.lampR,S.lampF)):1; for(const m of ENV_MATS) m.envMapIntensity=m.userData.envBase*envK;
-  const target=(EXPOZ[zone]||1)*(zone==='suite'?(1.5-0.5*S.on*Math.max(S.ceil,S.lampL,S.lampR)):1)*(zone==='ext'||zone==='street'?TODK.exE:zone==='hall'||zone==='cab'||zone==='upper'?1:TODK.exI);
+  const target=(EXPOZ[zone]||1)*(zone==='suite'?(1.5-0.5*S.on*Math.max(S.ceil,S.lampL,S.lampR)):1)*(zone==='ext'||zone==='street'?TODK.exE:zone==='hall'||zone==='cab'||zone==='upper'||zone==='metro'?1:TODK.exI);
   expo+=(target-expo)*Math.min(1,dt*1.2); finalPass.uniforms.exposure.value=expo;
   finalPass.uniforms.aperture.value=Q.hi&&lt>0.5?3:0; finalPass.uniforms.focus.value=2.4;
   aoPass.strength=Q.hi?(zone==='street'||zone==='ext'?0.7:0.9):0; aoPass.radius=zone==='street'||zone==='ext'?1.1:0.55;
   finalPass.uniforms.time.value=rt;
 }
 function updateHUD(dt){
-  $('#loc').textContent=zone==='street'?streetName():zone==='shop'&&curVenue?curVenue.name:(ZNAME[zone]||'');
+  $('#loc').textContent=zone==='street'?streetName():zone==='shop'&&curVenue?curVenue.name:zone==='metro'?METRO[Math.max(0,stationAt(P.x,P.z))].n+'站 · 地铁 1 号线':(ZNAME[zone]||'');
+  if(DRIVE.on){ $('#spd').textContent=Math.round(Math.abs(DRIVE.v)*3.6); $('#gear').textContent=DRIVE.v<-0.2?'R':Math.abs(DRIVE.v)<0.2&&DRIVE.thr===0?'P':'D'; }
   $('#clk').textContent=worldClock();
-  $('#floor').textContent=P.inCab?(LIFT.state==='moving'?'LIFT · '+(1+Math.round(LIFT.y/4.2))+'F':'LIFT'):P.y>20?'FLOOR 38':P.y>5?'MEZZANINE':'GROUND';
+  $('#floor').textContent=DRIVE.on?(DRIVE.cam===1?'DRIVING · COCKPIT':'DRIVING'):RIDE.on?'METRO · LINE 1':zone==='metro'?(P.y<-8?'B2 · PLATFORM':'B1 · CONCOURSE'):zone==='hsr'&&P.y>0.9?'PLATFORM 1':P.inCab?(LIFT.state==='moving'?'LIFT · '+(1+Math.round(LIFT.y/4.2))+'F':'LIFT'):P.y>20?'FLOOR 38':P.y>5?'MEZZANINE':'GROUND';
   curAct=pickAct(); const pr=$('#prompt'); if(curAct){ pr.hidden=false; $('#prompt-t').textContent=curAct.label(); $('#prompt-k').textContent=isTouch?'轻点':'E'; body.classList.add('can-act'); } else { pr.hidden=true; body.classList.remove('can-act'); }
   if(toastT>0){ toastT-=dt; if(toastT<=0) $('#toast').classList.remove('on'); }
   drawMap();
@@ -3494,7 +4335,7 @@ function applyTOD(k){ const t=TODS[k]; TODK=t; todKey=k;
   scene.fog.color.setRGB(...t.fog); scene.fog.density=t.fogD;
   for(const m of WINMATS){ const w=m.uniforms; w.fogDensity.value=t.fogD; w.uGain.value=t.win; w.uRefA.value.setRGB(...t.refA); w.uRefB.value.setRGB(...t.refB); w.uAmb.value.setRGB(...t.amb); }
   M.warm.color.copy(TODBASE.warm).multiplyScalar(t.lamps).add(new THREE.Color(0.55,0.52,0.47).multiplyScalar(1-t.lamps)); M.lampPool.color.copy(TODBASE.lampPool).multiplyScalar(t.lamps);
-  for(const gl of [D.lampGlowA,D.lampGlowB]) if(gl){ gl.material.opacity=t.lamps; gl.visible=t.lamps>0.02; }
+  for(const gl of [D.lampGlowA,D.lampGlowB,D.lampGlowC]) if(gl){ gl.material.opacity=t.lamps; gl.visible=t.lamps>0.02; }
   const facadeK=k==='night'?1:k==='dusk'?0.7:k==='dawn'?0.3:0.08; D.towerFaces.forEach((m,i)=>m.emissiveIntensity=TODBASE.towerE[i]*facadeK);
   D.towerWash.color.copy(TODBASE.wash).multiplyScalar(t.lamps); D.crownStrip.color.copy(TODBASE.strip).multiplyScalar(0.25+0.75*t.lamps);
   D.cityIM.material.color.setScalar(k==='night'?1:k==='noon'?3.2:2.2);
@@ -3514,7 +4355,7 @@ try { chooseLights('ext',true); applyLights(0); simulate(0,0); renderer.compile(
 async function captureEnvs(){ const out={}; D.capturing=true;
   const cubeRT=new THREE.WebGLCubeRenderTarget(256,{type:THREE.HalfFloatType}); const cc=new THREE.CubeCamera(0.05,4000,cubeRT); cc.children.forEach(c=>c.layers.enable(1)); scene.add(cc); const pm=new THREE.PMREMGenerator(renderer);
   const C=MAP.cafe||{x0:0,z0:0,x1:0,z1:0};
-  const shots=[['ext',[4,0,24]],['street',[80,0.15,70]],['lobby',[0,0,-13]],['hall',[0.5,0,-43.2]],['cab',[7.45,0,-45]],['upper',[-10,H,-45]],['suite',[-24,H,-54]],['cafe',[(C.x0+C.x1)/2,0.15,(C.z0+C.z1)/2]]];
+  const shots=[['ext',[4,0,24]],['street',[80,0.15,70]],['lobby',[0,0,-13]],['hall',[0.5,0,-43.2]],['cab',[7.45,0,-45]],['upper',[-10,H,-45]],['suite',[-24,H,-54]],['cafe',[(C.x0+C.x1)/2,0.15,(C.z0+C.z1)/2]],['metro',[-66,CC_Y,38]],['hsr',[170,0.15,-400]],['air',[500,0.15,-90]]];
   const saveP={...P}, saveS={welcomed:S.welcomed,on:S.on,curt:S.curt,curtTarget:S.curtTarget}; S.welcomed=true; S.on=1; S.curt=0; S.curtTarget=0; S.lastCurt=-1;
   try {
     for(const [k,p] of shots){ P.x=p[0]; P.y=p[1]; P.z=p[2]; P.inCab=false; simulate(0.016,0); chooseLights(zone,true); applyLights(0); renderer.shadowMap.needsUpdate=true;
@@ -3541,6 +4382,6 @@ setProgress(1); goBtn.disabled=false; goBtn.textContent='进入夜城';
 goBtn.onclick=()=>{ audioInit(); if(AU.ctx) AU.ctx.resume(); started=true; body.classList.add('started'); $('#intro').classList.add('gone'); setTimeout(()=>{ $('#intro').hidden=true; },1300);
   if(!isTouch){ try{ const p=canvasEl.requestPointerLock&&canvasEl.requestPointerLock(); if(p&&p.catch) p.catch(()=>{ dragLook=true; toast('按住鼠标拖动即可环顾四周'); }); }catch(e){ dragLook=true; } }
   toast(isTouch?'左下摇杆行走 · 拖动画面环顾 · 轻点提示互动':'WASD 行走 · 鼠标环顾 · E 互动'); };
-window.__world={ P, S, LIFT, get frames(){ return D.frames||0; }, lowq:()=>{ Q.hi=false; Q.scale=0.6; resize(); }, stats:()=>({meshes:Z.district.children.length, kit:[...KIT].map(([m,a])=>a.length/6), win:WINS.room.length/10, shop:WINS.shop.length/10, col:COL.length, bld:MAP.bldgs.length, venues:VENUES.map(v=>({type:v.type,name:v.name,style:v.style,W:+v.W.toFixed(1),D:+v.D.toFixed(1),spawn:v.spawn,yaw:v.spawnYaw,door:v.door,rect:v.rect,acts:(v.acts||[]).map(q=>[q[0],q[1],q[2],q[4]])})), lights:LIGHTSRC.length, cafe:MAP.cafe}), teleport:(i)=>teleport(GOTO[i]), go:(x,y,z,yaw,pitch)=>{ started=true; $('#intro').hidden=true; Object.assign(P,{x,y,z,yaw,pitch:pitch||0}); }, act:()=>doAct(), tod:k=>setTOD(k,true), get todKey(){ return todKey; }, dbg:{aoPass,renderer,SP,PL,finalPass,Q,D,KITMESH,scene,ENVS,M}, cols:(x,z,rad)=>COL.filter(c=>c.t?Math.hypot(c.x-x,c.z-z)<rad+c.r:(x>c.x0-rad&&x<c.x1+rad&&z>c.z0-rad&&z<c.z1+rad)), get prompt(){ const a=pickAct(); return a?a.label():null; }, hold:on=>{ D.hold=!!on; }, step:(n,dt)=>{ dt=dt||1/30; for(let i=0;i<n;i++){ D.simT=(D.simT||0)+dt; simulate(dt,D.simT); } }, render:()=>{ updateHUD(0); composer.render(); }, get zone(){ return zone; }, key:(k,on)=>{ if(on) keys.add(k); else keys.delete(k); } };
+window.__world={ P, S, LIFT, get frames(){ return D.frames||0; }, lowq:()=>{ Q.hi=false; Q.scale=0.6; resize(); }, stats:()=>({meshes:Z.district.children.length, kit:[...KIT].map(([m,a])=>a.length/6), win:WINS.room.length/10, shop:WINS.shop.length/10, col:COL.length, bld:MAP.bldgs.length, venues:VENUES.map(v=>({type:v.type,name:v.name,style:v.style,W:+v.W.toFixed(1),D:+v.D.toFixed(1),spawn:v.spawn,yaw:v.spawnYaw,door:v.door,rect:v.rect,acts:(v.acts||[]).map(q=>[q[0],q[1],q[2],q[4]])})), lights:LIGHTSRC.length, cafe:MAP.cafe}), teleport:(i)=>teleport(GOTO[i]), go:(x,y,z,yaw,pitch)=>{ started=true; $('#intro').hidden=true; Object.assign(P,{x,y,z,yaw,pitch:pitch||0}); }, act:()=>doAct(), tod:k=>setTOD(k,true), get todKey(){ return todKey; }, dbg:{aoPass,renderer,SP,PL,finalPass,Q,D,KITMESH,scene,ENVS,M}, cols:(x,z,rad)=>COL.filter(c=>c.t?Math.hypot(c.x-x,c.z-z)<rad+c.r:(x>c.x0-rad&&x<c.x1+rad&&z>c.z0-rad&&z<c.z1+rad)), get prompt(){ const a=pickAct(); return a?a.label():null; }, hold:on=>{ D.hold=!!on; }, step:(n,dt)=>{ dt=dt||1/30; for(let i=0;i<n;i++){ D.simT=(D.simT||0)+dt; simulate(dt,D.simT); } }, render:()=>{ updateHUD(0); composer.render(); }, get zone(){ return zone; }, key:(k,on)=>{ if(on) keys.add(k); else keys.delete(k); }, DRIVE, RIDE, MT, HT_, PLN, METRO, CARS, enterCar:c=>enterCar(c), exitCar:()=>exitCar(), nearCar:()=>nearCar(), joy };
 })();
 </script>
