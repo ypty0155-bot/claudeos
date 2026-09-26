@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>澜悦夜城</title>
-<meta name="description" content="第一视角自由漫步的开放世界：从澜悦酒店的前庭、大堂、电梯到 3808 套房，再走进周围街区的咖啡馆和精细建模的街道。">
+<meta name="description" content="第一视角自由漫步的开放世界：从澜悦酒店的前庭、大堂、电梯到 3808 套房，走进周围街区的咖啡馆和店铺，开车上路，坐地铁去高铁站和国际机场。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=Jost:wght@300;400;500&family=Noto+Serif+SC:wght@300;500&display=swap">
@@ -81,7 +81,8 @@
   body.touch #cross{display:none}
   #speedo{position:fixed;z-index:3;left:max(16px,2.5vw);bottom:calc(env(safe-area-inset-bottom,0px) + 16px);padding:8px 16px;display:flex;align-items:baseline;gap:8px;pointer-events:none;font-variant-numeric:tabular-nums}
   #speedo b{font:500 30px/1 var(--ui);letter-spacing:.02em;color:var(--ivory)} #speedo span{font:400 11px/1 var(--ui);letter-spacing:.2em;color:var(--ivory-dim)} #speedo i{font:600 14px/1 var(--ui);font-style:normal;color:var(--gold-hi);border:1px solid var(--gold);border-radius:4px;padding:3px 6px;margin-left:4px}
-  body.touch #speedo{bottom:auto;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 64px)}
+  body.touch #speedo{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 96px);padding:6px 12px} body.touch #speedo b{font-size:24px}
+  @media (max-width:520px){ body.touch #dock{top:calc(env(safe-area-inset-top,0px) + 12px);bottom:auto;right:12px;max-width:calc(100vw - 196px);gap:6px} body.touch #dock .btn{height:32px;padding:0 10px;font-size:11px} body.touch #dock .btn kbd{display:none} body.touch #todpop{top:calc(env(safe-area-inset-top,0px) + 132px);bottom:auto;right:12px;grid-template-columns:repeat(2,auto)} body.touch #toast{top:calc(env(safe-area-inset-top,0px) + 140px)} }
   body.driving #cross{display:none}
   #fade{position:fixed;inset:0;z-index:5;background:#000;opacity:0;pointer-events:none}
 
@@ -177,7 +178,7 @@
     </svg>
     <h1>澜悦夜城</h1>
     <p class="sub">An open night around Hôtel Aurelle</p>
-    <p class="lede">雨后的夜晚，你站在澜悦酒店的前庭。可以自己走进大堂、按电梯上三十八层、刷卡进 3808 套房，也可以穿过马路，去街角的咖啡馆坐坐，或者在周围的街区随便走走。</p>
+    <p class="lede">雨后的夜晚，你站在澜悦酒店的前庭。可以自己走进大堂、按电梯上三十八层、刷卡进 3808 套房，也可以穿过马路，去街角的咖啡馆坐坐；门口停着的车可以开走，花园里的地铁站能坐到高铁站和国际机场。</p>
     <div class="todsel" role="radiogroup" aria-label="选择时间">
       <button class="tod-opt" data-tod="dawn" role="radio"><b>清晨</b><span>06:12</span></button>
       <button class="tod-opt" data-tod="noon" role="radio"><b>正午</b><span>12:30</span></button>
@@ -2544,7 +2545,7 @@ function buildCars(){
   for(const R of ROADS_EW) for(const s of [-1,1]) for(let x=-WR+12;x<WR-8;x+=6.2){ if(Math.abs(x)<24||Math.abs(Math.abs(x)-170)<24||r()<0.45) continue; spots.push([x,R.z+s*(R.w/2-1.3),s>0?Math.PI:0]); }
   for(const R of ROADS_NS) for(const s of [-1,1]) for(let z=-WR+12;z<WR-8;z+=6.2){ if(ROADS_EW.some(e=>Math.abs(z-e.z)<24)||r()<0.45) continue; spots.push([R.x+s*(R.w/2-1.3),z,s>0?-Math.PI/2:Math.PI/2]); }
   spots.push([3.6,50,-Math.PI/2,'#0c0c0e'],[-3.6,50,Math.PI/2,'#e9e6df']);                                            // valet cars on the hotel drive
-  LOTROWS.forEach((zc,i)=>{ for(let x=312;x<430;x+=2.7){ if(r()<0.62) continue; spots.push([x,zc,(i%2?1:-1)*Math.PI/2*(r()<0.8?1:-1)]); } });   // airport car park
+  const lot=[]; LOTROWS.forEach((zc,i)=>{ for(let x=312;x<430;x+=2.7){ if(r()<0.62) continue; lot.push([x,zc,(i%2?1:-1)*Math.PI/2*(r()<0.8?1:-1)]); } });   // airport car park
   for(let x=112;x<160;x+=6.5) spots.push([x,-362.5,0,r()<0.5?'#2f7d55':'#d9b73a']);                                   // taxis at the station
   const N=spots.length, NM=26, tot=N+NM;
   const mk=(g,m,c)=>{ const im=new THREE.InstancedMesh(g,m,tot); im.frustumCulled=false; im.castShadow=m!==headM&&m!==tailM; im.receiveShadow=true; Z.district.add(im); return im; };
@@ -2561,6 +2562,13 @@ function buildCars(){
   lanes.push({axis:1,c:-4.3,dir:1,z0:92},{axis:1,c:4.3,dir:-1,z0:92});
   for(let k=0;k<NM;k++){ const L=lanes[k%lanes.length]; CARS.moving.push({i:N+k,L,s:(r()*2-1)*(WR-20),v:9+r()*5,col:cols[(r()*cols.length)|0],cur:0}); IB.setColorAt(N+k,c.set(cols[(r()*cols.length)|0])); }
   CARS.I={IB,IG,IW,IH,IT,IX,IC}; CARS.N=N; CARS.G=G; CARS.M={paint,glassM,wheelM,trimM,chromeM,headM,tailM};
+  // the airport car park gets its own instanced meshes, culled as one block whenever the car park is out of view
+  { const NL=lot.length, bb=new THREE.Box3(new THREE.Vector3(300,0,-172),new THREE.Vector3(442,2,70)); CARS.lotS=bb.getBoundingSphere(new THREE.Sphere());
+    const mkL=(geo,mat)=>{ const gg=geo.clone(); gg.boundingBox=bb.clone(); gg.boundingSphere=CARS.lotS.clone(); const im=new THREE.InstancedMesh(gg,mat,NL); im.frustumCulled=true; im.castShadow=true; im.receiveShadow=true; Z.links.add(im); return im; };
+    const L={IB:mkL(G.body,paint),IG:mkL(G.glass,glassM),IW:mkL(G.wheel,wheelM),IX:mkL(G.dark,trimM),IC:mkL(G.chrome,chromeM)};
+    lot.forEach(([x,z,ry],i)=>{ m4.compose(v.set(x,0,z),q.setFromEuler(e.set(0,ry,0)),one); for(const k in L) L[k].setMatrixAt(i,m4); const col=cols[(r()*cols.length)|0]; L.IB.setColorAt(i,c.set(col));
+      addBox(x-0.95,z-2.4,x+0.95,z+2.4,0,1.5); CARS.parked.push({i,I:L,x,z,y:0,h:ry,col,box:COL[COL.length-1],dyn:null}); });
+    CARS.IL=L; }
   const hp=new THREE.BufferGeometry(); hp.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(NM*6),3));
   CARS.glow=new THREE.Points(hp,new THREE.PointsMaterial({map:T.glow,color:lin(2.2,2.1,1.9),size:1.3,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending})); CARS.glow.frustumCulled=false; Z.district.add(CARS.glow);
   const tp=new THREE.BufferGeometry(); tp.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(NM*6),3));
@@ -2644,7 +2652,7 @@ function drawDash(){ const d=DRIVE, t=d.dash, kmh=Math.round(Math.abs(d.v)*3.6);
   x.fillStyle='#f2ece0'; x.font=`500 58px ${UIF}`; x.textAlign='center'; x.fillText(String(kmh),256,88); x.font=`400 18px ${UIF}`; x.fillStyle='rgba(242,236,224,.7)'; x.fillText('km/h',256,114);
   x.fillStyle='#ecd6a2'; x.font=`500 26px ${UIF}`; x.fillText(d.v<-0.2?'R':Math.abs(d.v)<0.2&&d.thr===0?'P':'D',256,150); t.tex.needsUpdate=true; }
 function carLocal(c,lx,lz){ const cs=Math.cos(c.h), sn=Math.sin(c.h); return [c.x+lx*cs+lz*sn, c.z-lx*sn+lz*cs]; }
-function setCarInstance(c,hide){ const I=CARS.I, m4=new THREE.Matrix4(); if(hide) m4.makeScale(0,0,0); else m4.compose(new THREE.Vector3(c.x,c.y,c.z),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,c.h,0)),new THREE.Vector3(1,1,1));
+function setCarInstance(c,hide){ const I=c.I||CARS.I, m4=new THREE.Matrix4(); if(c.I&&!hide&&!CARS.lotS.containsPoint(new THREE.Vector3(c.x,0,c.z))) for(const k in c.I) c.I[k].frustumCulled=false; if(hide) m4.makeScale(0,0,0); else m4.compose(new THREE.Vector3(c.x,c.y,c.z),new THREE.Quaternion().setFromEuler(new THREE.Euler(0,c.h,0)),new THREE.Vector3(1,1,1));
   for(const k of ['IB','IG','IW','IX','IC']){ I[k].setMatrixAt(c.i,m4); I[k].instanceMatrix.needsUpdate=true; } }
 function carHits(x,z,h,y){ const cs=Math.cos(h), sn=Math.sin(h);
   for(const [lx,lz] of CARPTS){ const px=x+lx*cs+lz*sn, pz=z-lx*sn+lz*cs; if(blocked(px,pz,y)) return true; for(const r of CARLOW) if(px>r.x0&&px<r.x1&&pz>r.z0&&pz<r.z1) return true; }
@@ -4306,7 +4314,7 @@ function updateHUD(dt){
   $('#loc').textContent=zone==='street'?streetName():zone==='shop'&&curVenue?curVenue.name:zone==='metro'?METRO[Math.max(0,stationAt(P.x,P.z))].n+'站 · 地铁 1 号线':(ZNAME[zone]||'');
   if(DRIVE.on){ $('#spd').textContent=Math.round(Math.abs(DRIVE.v)*3.6); $('#gear').textContent=DRIVE.v<-0.2?'R':Math.abs(DRIVE.v)<0.2&&DRIVE.thr===0?'P':'D'; }
   $('#clk').textContent=worldClock();
-  $('#floor').textContent=DRIVE.on?(DRIVE.cam===1?'DRIVING · COCKPIT':'DRIVING'):RIDE.on?'METRO · LINE 1':zone==='metro'?(P.y<-8?'B2 · PLATFORM':'B1 · CONCOURSE'):zone==='hsr'&&P.y>0.9?'PLATFORM 1':P.inCab?(LIFT.state==='moving'?'LIFT · '+(1+Math.round(LIFT.y/4.2))+'F':'LIFT'):P.y>20?'FLOOR 38':P.y>5?'MEZZANINE':'GROUND';
+  $('#floor').textContent=DRIVE.on?(DRIVE.cam===1?'COCKPIT':'DRIVING'):RIDE.on?'METRO · LINE 1':zone==='metro'?(P.y<-8?'B2 · PLATFORM':'B1 · CONCOURSE'):zone==='hsr'&&P.y>0.9?'PLATFORM 1':P.inCab?(LIFT.state==='moving'?'LIFT · '+(1+Math.round(LIFT.y/4.2))+'F':'LIFT'):P.y>20?'FLOOR 38':P.y>5?'MEZZANINE':'GROUND';
   curAct=pickAct(); const pr=$('#prompt'); if(curAct){ pr.hidden=false; $('#prompt-t').textContent=curAct.label(); $('#prompt-k').textContent=isTouch?'轻点':'E'; body.classList.add('can-act'); } else { pr.hidden=true; body.classList.remove('can-act'); }
   if(toastT>0){ toastT-=dt; if(toastT<=0) $('#toast').classList.remove('on'); }
   drawMap();
