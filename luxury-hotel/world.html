@@ -227,6 +227,7 @@ const maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(lin(0.03,0.03,0.05), 0.00052);
+const LITE=matchMedia('(pointer: coarse)').matches;   // phones and tablets: fewer leaf cards, smaller sun shadow map
 const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 7000);
 camera.rotation.order = 'YXZ';
 camera.layers.enable(1);
@@ -2438,7 +2439,7 @@ function buildTrees(g,list){
     for(let b=0;b<nb;b++){ const a=b/nb*TAU+r3()*0.8, reach=rx*(0.45+r3()*0.35), top=cy+ry*(0.1+r3()*0.35);
       const bx=x+Math.cos(a)*0.15, bz=z+Math.sin(a)*0.15; wood.push([bx,fork,bz, Math.cos(a)*reach,top-fork,Math.sin(a)*reach, tr*0.62]);
       const ex=bx+Math.cos(a)*reach, ez=bz+Math.sin(a)*reach; for(let s=0;s<2;s++){ const a2=a+(s?0.7:-0.7)+(r3()-0.5)*0.4; wood.push([ex,top,ez, Math.cos(a2)*rx*0.35,ry*0.3,Math.sin(a2)*rx*0.35, tr*0.3]); } }
-    const n=Math.round(64+h*4);
+    const n=Math.round(LITE?34+h*2:64+h*4);
     for(let k=0;k<n;k++){ const u=r3()*TAU, w=Math.acos(2*r3()-1), rr=0.45+0.55*Math.cbrt(r3());
       const ox=Math.sin(w)*Math.cos(u)*rx*rr, oy=Math.cos(w)*ry*rr*(Math.cos(w)<0?0.55:0.9), oz=Math.sin(w)*Math.sin(u)*rx*rr;
       v.set(ox,oy+ry*0.35,oz).normalize(); const depth=0.5+0.5*rr, j=0.82+r3()*0.3, sun=0.85+0.15*(oy/ry);
@@ -2997,7 +2998,7 @@ const hemi=new THREE.HemisphereLight(lin(0.22,0.28,0.48),lin(0.28,0.2,0.14),0.3)
 const moon=new THREE.DirectionalLight(lin(0.62,0.72,1.0),0.3); moon.position.copy(MOON).multiplyScalar(200); scene.add(moon,moon.target);
 const PL=[]; for(let i=0;i<8;i++){ const l=new THREE.PointLight(0xffffff,0,0,2); scene.add(l); PL.push(l); }
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate=false; renderer.shadowMap.needsUpdate=true;
-const SUN=moon; SUN.castShadow=true; SUN.shadow.mapSize.set(2048,2048); { const c=SUN.shadow.camera; c.left=-95; c.right=95; c.top=95; c.bottom=-95; c.near=1; c.far=900; c.updateProjectionMatrix(); } SUN.shadow.bias=-0.0006; SUN.shadow.normalBias=0.08; SUN.shadow.autoUpdate=false;
+const SUN=moon; SUN.castShadow=true; SUN.shadow.mapSize.set(LITE?1024:2048,LITE?1024:2048); { const c=SUN.shadow.camera; c.left=-95; c.right=95; c.top=95; c.bottom=-95; c.near=1; c.far=900; c.updateProjectionMatrix(); } SUN.shadow.bias=-0.0006; SUN.shadow.normalBias=0.08; SUN.shadow.autoUpdate=false;
 const SP=[]; for(let i=0;i<2;i++){ const l=new THREE.SpotLight(0xffffff,0,0,1.0,0.9,2); l.castShadow=true; l.shadow.mapSize.set(1024,1024); l.shadow.bias=-0.0003; l.shadow.normalBias=0.03; l.shadow.camera.near=0.2; l.shadow.camera.far=30; scene.add(l,l.target); l.shadow.autoUpdate=false; SP.push(l); }
 function addCollider(x0,z0,x1,z1,y0,y1){ addBox(x0,z0,x1,z1,y0,y1); }
 function hit(c,x,z,f0,f1){ if(c.y1<=f0||c.y0>=f1) return false;
