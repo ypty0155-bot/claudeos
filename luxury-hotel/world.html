@@ -3440,7 +3440,7 @@ function simulate(dt,rt){
   // zones and visibility
   zone=zoneAt(P.x,P.y,P.z);
   const high=P.y>20||(P.inCab&&LIFT.y>20);
-  Z.site.visible=Z.tower.visible=!high; Z.district.visible=!(zone==='cab'||(zone==='upper'&&(S.suite<0.02||P.x>-12))); // skip the whole city inside closed spaces Z.lobby.visible=!high&&Math.hypot(P.x,P.z+20)<280; Z.upper.visible=high||(P.inCab&&LIFT.state==='moving');
+  Z.site.visible=Z.tower.visible=!high; Z.district.visible=!(zone==='cab'||(zone==='upper'&&(S.suite<0.02||P.x>-12))); /* skip the whole city inside closed spaces */ Z.lobby.visible=!high&&Math.hypot(P.x,P.z+20)<280; Z.upper.visible=high||(P.inCab&&LIFT.state==='moving');
   D.refl.visible=Q.hi&&!high&&(zone==='lobby'||zone==='hall'||(zone==='ext'&&P.z<40&&Math.abs(P.x)<30));
   D.wet.visible=Q.hi&&!high&&(zone==='ext'||(zone==='street'&&Math.abs(P.x)<60&&P.z<280&&P.z>30));
   D.winRefl.visible=Q.hi&&zone==='suite';
