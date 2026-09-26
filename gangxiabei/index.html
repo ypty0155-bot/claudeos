@@ -67,6 +67,7 @@
 
   #toast{position:fixed;z-index:5;left:50%;top:calc(env(safe-area-inset-top,0px) + 16px);transform:translateX(-50%);padding:9px 16px;font:500 13px/1.45 var(--cn);letter-spacing:.06em;opacity:0;transition:opacity .4s;pointer-events:none;max-width:min(520px,calc(100vw - 32px));text-align:center;display:flex;gap:8px;align-items:center}
   #toast.on{opacity:1}
+  #hint{position:fixed;z-index:4;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 84px);padding:7px 14px;font:500 13px/1.45 var(--cn);letter-spacing:.05em;max-width:min(560px,calc(100vw - 32px));text-align:center;pointer-events:none;border-color:rgba(242,199,92,.45)}
 
   #help{position:fixed;z-index:6;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;padding:20px 22px 18px;box-sizing:border-box;background:var(--panel-hi)}
   #help h2{margin:0 0 6px;font:700 19px/1.3 var(--cn);letter-spacing:.12em}
@@ -107,6 +108,7 @@
     #hud{padding:9px 11px 0;min-width:0} #hud .stn b{font-size:22px} #hud .stn span{font-size:14px} #hud .role{display:none} #hud .where{margin-bottom:9px}
     #hud .bar{margin:0 -11px}
     body.touch #joy{bottom:calc(env(safe-area-inset-bottom,0px) + 190px)}
+    #hint{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 118px);font-size:12px}
   }
   @media (max-height:520px){ #board{display:none} .lede{margin-top:12px;line-height:1.7} #enter{margin-top:14px} }
   @media (prefers-reduced-motion: reduce){ .ov,#toast{transition-duration:.01s} }
@@ -137,6 +139,7 @@
 </div>
 
 <div id="toast" class="panel" role="status"></div>
+<div id="hint" class="panel" role="status" hidden></div>
 <div id="joy" aria-hidden="true"><i></i></div>
 
 <div id="help" class="panel" role="dialog" aria-modal="false" aria-labelledby="help-t" hidden>
@@ -145,6 +148,8 @@
   <p>站在 B2 层的两座岛式站台上。中间两股道是 14 号线，南北外侧是 11 号线；同一座站台两侧是同一方向的车，下车走几步就能换乘。</p>
   <dl>
     <dt>W A S D / 方向键</dt><dd>行走（按住 Shift 快走）</dd>
+    <dt>上车</dt><dd>车门和屏蔽门都打开时，对准车门往前走就进了车厢；留在车上会随车开走，出隧道后接着坐返程或折返的列车回到岗厦北</dd>
+    <dt>扶梯 · 楼梯 · 电梯</dt><dd>扶梯组靠 14 号线一侧是上行扶梯、中间下行、靠 11 号线一侧是楼梯，走上去就能去 B1 站厅；电梯在岛中部，站到门口等门开再走进去</dd>
     <dt>拖动画面</dt><dd>转头看；环绕模式下旋转，右键或双指平移</dd>
     <dt>滚轮 / 双指捏合</dt><dd>行走时调焦距，环绕时拉近拉远</dd>
     <dt>1 – 9</dt><dd>切换预设视角</dd>
@@ -165,7 +170,7 @@
     </div>
     <p class="lede">深圳地铁岗厦北枢纽 <b>B2 站台层</b>：两座 16 米宽的岛式站台，<b>14 号线</b>停中间两股道，<b>11 号线</b>停南北外侧，同一站台两侧同向列车<b>同台换乘</b>。全高屏蔽门、扶梯、导向牌和乘客信息屏都按实物比例建模，列车按时刻表进站、开门、关门、离站。</p>
     <button id="enter" type="button" disabled>正在建站…</button>
-    <div class="keys"><span><kbd>WASD</kbd>行走</span><span><kbd>拖动</kbd>转头</span><span><kbd>1–9</kbd>视角</span><span><kbd>C</kbd>剖视</span><span><kbd>M</kbd>声音</span></div>
+    <div class="keys"><span><kbd>WASD</kbd>行走</span><span><kbd>拖动</kbd>转头</span><span><kbd>1–9</kbd>视角</span><span>走进车门上车 · 扶梯和电梯可去 B1</span><span><kbd>C</kbd>剖视</span><span><kbd>M</kbd>声音</span></div>
     <div id="err" hidden></div>
   </div>
 </div>
@@ -1081,6 +1086,8 @@ const EYE={ x:-40.4, z:0, R:4.5 };
   for(const x of [-70,-10,20,70]) for(const z of [-19,0,19]) if(Math.hypot(x-EYE.x,z-EYE.z)>8) KU.put(b1col, xf(new THREE.CylinderGeometry(0.6,0.6,B1C-B1,32),x,(B1+B1C)/2,z));
   const b1wall=std({ map:TX.wall.map, normalMap:TX.wall.normalMap, roughness:0.4, emissive:col('#c9ced2'), emissiveMap:TX.wall.map, emissiveIntensity:0.45 });
   KU.put(b1wall, Bx(-110,B1,-30.3,110,B1C,-30),{uv:4.8}); KU.put(b1wall, Bx(-110,B1,30,110,B1C,30.3),{uv:4.8});
+  KU.put(b1wall, Bx(-110.3,B1,-30,-110,B1C,30),{uv:4.8}); KU.put(b1wall, Bx(110,B1,-30,110.3,B1C,30),{uv:4.8});
+  for(const sx of [-1,1]) for(const z of [-14,14]){ const x=sx*109.9; KU.put(new THREE.MeshBasicMaterial({ map:signTex([{t:'icon',k:'exit'},{t:'text',cn:'出口 · 换乘 2 号线 10 号线',en:'Exit · Transfer to Lines 2 & 10'}]), color:col('#ffffff').multiplyScalar(1.1) }), xf(new THREE.PlaneGeometry(6,0.75),x,B1+3.2,z,sx>0?-Math.PI/2:Math.PI/2)); }
 }
 
 /* ---------- escalators, stairs, lift ---------- */
@@ -1181,21 +1188,32 @@ function updateEscalators(dt){
     K.put(M.glass, Bx(x-hx,0.08,zc-hz-0.01,x+hx,4.6,zc-hz+0.01)); K.put(M.glass, Bx(x-hx,0.08,zc+hz-0.01,x+hx,4.6,zc+hz+0.01));
     K.put(M.glass, Bx(x-hx-0.01,0.08,zc-hz,x-hx+0.01,4.6,zc+hz)); K.put(M.glass, Bx(x+hx-0.01,0.08,zc-hz,x+hx+0.01,4.6,zc+hz));
     K.put(M.brushed, Bx(x-hx-0.02,4.68,zc-hz-0.02,x+hx+0.02,B1+0.2,zc+hz+0.02));
-    const zd=zc-isl.s*(hz+0.03);                                                 // doors face the 14 号线 side
-    K.put(M.steel, Bx(x-0.55,0.02,Math.min(zd,zd-isl.s*0.03),x+0.55,2.15,Math.max(zd,zd-isl.s*0.03)));
-    K.put(M.steelDark, Bx(x-0.004,0.02,Math.min(zd,zd-isl.s*0.035),x+0.004,2.15,Math.max(zd,zd-isl.s*0.035)));
-    K.put(M.ledCool, Bx(x-0.3,2.3,Math.min(zd,zd-isl.s*0.04),x+0.3,2.36,Math.max(zd,zd-isl.s*0.04)));
-    const car=new THREE.Group(); lg.add(car); car.position.set(x,0,zc);
+    const zd=zc-isl.s*(hz+0.03);                                                 // doors face the 14 号线 side, on both floors
+    for(const y0 of [0,B1]){
+      K.put(M.steel, Bx(x-0.66,y0+0.02,Math.min(zd,zd-isl.s*0.05),x-0.56,y0+2.25,Math.max(zd,zd-isl.s*0.05)));
+      K.put(M.steel, Bx(x+0.56,y0+0.02,Math.min(zd,zd-isl.s*0.05),x+0.66,y0+2.25,Math.max(zd,zd-isl.s*0.05)));
+      K.put(M.steel, Bx(x-0.66,y0+2.15,Math.min(zd,zd-isl.s*0.05),x+0.66,y0+2.25,Math.max(zd,zd-isl.s*0.05)));
+      K.put(M.ledCool, Bx(x-0.3,y0+2.34,Math.min(zd,zd-isl.s*0.04),x+0.3,y0+2.4,Math.max(zd,zd-isl.s*0.04)));
+    }
+    K.put(M.glass, Bx(x-hx,B1,zc+hz*isl.s-0.01,x+hx,B1+2.8,zc+hz*isl.s+0.01)); K.put(M.glass, Bx(x-hx-0.01,B1,zc-hz,x-hx+0.01,B1+2.8,zc+hz)); K.put(M.glass, Bx(x+hx-0.01,B1,zc-hz,x+hx+0.01,B1+2.8,zc+hz));
+    K.put(M.glass, Bx(x-hx,B1+2.25,Math.min(zd,zd+isl.s*0.02),x+hx,B1+2.8,Math.max(zd,zd+isl.s*0.02)));
+    for(const sgn of [-1,1]) K.put(M.glass, Bx(sgn>0?x+0.66:x-hx,B1,Math.min(zd,zd+isl.s*0.02),sgn>0?x+hx:x-0.66,B1+2.25,Math.max(zd,zd+isl.s*0.02)));
+    K.put(M.brushed, Bx(x-hx-0.02,B1+2.8,zc-hz-0.02,x+hx+0.02,B1+2.95,zc+hz+0.02));
+    const leafG=Bx(-0.28,0,-0.015,0.28,2.13,0.015), doors=[];
+    for(const y0 of [0,B1]) for(const sgn of [-1,1]){ const m=new THREE.Mesh(leafG,M.steel); m.position.set(x+sgn*0.28,y0+0.02,zd-isl.s*0.03); lg.add(m); doors.push({ m, y0, sgn }); }
+    const car=new THREE.Group(); lg.add(car); car.position.set(x,0,zc); car.rotation.y=isl.s>0?0:Math.PI;
     const ck=makeKit();
     ck.put(M.brushed, Bx(-0.9,0,-1.0,0.9,0.12,1.0)); ck.put(M.brushed, Bx(-0.9,2.3,-1.0,0.9,2.45,1.0));
     ck.put(M.glass, Bx(-0.9,0.12,0.98,0.9,2.3,1.0)); ck.put(M.glass, Bx(-0.9,0.12,-1.0,-0.88,2.3,1.0)); ck.put(M.glass, Bx(0.88,0.12,-1.0,0.9,2.3,1.0));
     ck.put(M.ledCool, Bx(-0.7,2.28,-0.8,0.7,2.3,0.8)); ck.put(M.steel, Bx(-0.9,0.9,0.9,0.9,0.95,0.95));
     for(const [dx,dz] of [[-0.8,-0.9],[0.8,-0.9],[-0.8,0.9],[0.8,0.9]]) ck.put(M.steelDark, Bx(dx-0.04,2.45,dz-0.04,dx+0.04,3.2,dz+0.04));
     ck.flush(car);
-    LIFTS.push({ car, t:rnd()*40, isl });
+    LIFTS.push({ car, t:rnd()*40, isl, doors, x });
   }
 }
-function updateLifts(dt){ for(const L of LIFTS){ L.t=(L.t+dt)%44; const t=L.t; const y= t<14?0: t<22? B1*sstep(14,22,t) : t<36? B1 : B1*(1-sstep(36,44,t)); L.car.position.y=y+0.02; } }
+function liftInfo(L){ const t=L.t; if(t<14) return { floor:'B2', open:sstep(0.6,1.6,t)*(1-sstep(12.4,13.4,t)) }; if(t>=22&&t<36) return { floor:'B1', open:sstep(22.6,23.6,t)*(1-sstep(34.4,35.4,t)) }; return { floor:null, open:0 }; }
+function updateLifts(dt){ for(const L of LIFTS){ L.t=(L.t+dt)%44; const t=L.t; const y= t<14?0: t<22? B1*sstep(14,22,t) : t<36? B1 : B1*(1-sstep(36,44,t)); L.car.position.y=y+0.02;
+  const li=liftInfo(L); for(const d of L.doors){ const o=(li.floor===(d.y0>0?'B1':'B2'))?li.open:0; d.m.position.x=L.x+d.sgn*(0.28+o*0.5); } } }
 
 /* ---------- benches, bins, extinguishers ---------- */
 {
@@ -1283,8 +1301,8 @@ function bandColor(L, y){ return y<1.13?L.skirt : y<1.30?L.body : y<1.62?L.belt 
 const M_paint=new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.26, metalness:0.3, envMapIntensity:1.25 });
 const M_tglass=new THREE.MeshStandardMaterial({ color:'#0b1116', transparent:true, opacity:0.55, roughness:0.05, metalness:0.1, envMapIntensity:0.8, depthWrite:false });
 const M_interior=new THREE.MeshStandardMaterial({ vertexColors:true, roughness:0.6, metalness:0.1 });
-M_interior.onBeforeCompile=sh=>{ sh.fragmentShader=sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb*0.55;'); };
-const M_head=glow('#fffaf0',4.5), M_tail=glow('#ff2a1a',3), M_cabin=glow('#f3f7ff',5.5);
+M_interior.onBeforeCompile=sh=>{ sh.fragmentShader=sh.fragmentShader.replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\ntotalEmissiveRadiance += diffuseColor.rgb*0.3;'); };
+const M_head=glow('#fffaf0',4.5), M_tail=glow('#ff2a1a',3), M_cabin=glow('#f3f7ff',3.2);
 const M_wind=new THREE.MeshStandardMaterial({ color:'#06080a', roughness:0.1, metalness:0.2, envMapIntensity:0.5 });
 function sideLED(text, line){ const [c,g]=cv(512,96); g.fillStyle='#050505'; g.fillRect(0,0,512,96); badge(g,line,12,14,68); g.fillStyle='#ffb13b'; g.font=`700 58px ${CNF}`; g.textBaseline='middle'; g.textAlign='left'; g.fillText(text,98,52); return new THREE.MeshBasicMaterial({ map:tex(c), color:col('#ffffff').multiplyScalar(2.2) }); }
 
@@ -1321,6 +1339,7 @@ function buildTrainGeometry(line){
       for(const o of order){ const v=it.q[o]; P.push(v[0],v[1],v[2]); N.push(...n[o]); C.push(cc.r,cc.g,cc.b); U.push(v[0]*0.2,v[1]*0.5); } }
     const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(N,3)); g.setAttribute('color',new THREE.Float32BufferAttribute(C,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(U,2)); return g; }
   function endCap(x, sgn){ const sh=new THREE.Shape(); const loop=[...PROF, ...PROF.slice(1,-1).reverse().map(([z,y])=>[-z,y])]; sh.moveTo(loop[0][0],loop[0][1]); for(const [z,y] of loop.slice(1)) sh.lineTo(z,y);
+    const gw=new THREE.Path(); gw.moveTo(-1.08,1.13); gw.lineTo(1.08,1.13); gw.lineTo(1.08,3.12); gw.lineTo(-1.08,3.12); gw.closePath(); sh.holes.push(gw);
     kP.put(M_paint, xf(new THREE.ShapeGeometry(sh),x,0,0,sgn>0?Math.PI/2:-Math.PI/2), { c:'#4a4e52' }); }
   // lofted nose: rings shrink and rake back towards the front
   function nose(xn, sgn){
@@ -1369,7 +1388,7 @@ function buildTrainGeometry(line){
     shell(xa,xb,doors);
     if(car.head>0){ nose(xb,1); endCap(xa,-1); } else if(car.head<0){ nose(xa,-1); endCap(xb,1); } else { endCap(xa,-1); endCap(xb,1); }
     // gangway bellows to the next car
-    if(car.head>=0 && CARS.indexOf(car)<7) kP.put(M_paint, Bx(x0-0.3,1.15,-1.18,x0+0.3,3.3,1.18), { c:'#1e1f21' });
+    if(car.head>=0 && CARS.indexOf(car)<7){ for(const zz of [-1,1]) kP.put(M_paint, Bx(x0-0.3,1.05,zz*1.12,x0+0.3,3.3,zz*1.18), { c:'#1e1f21' }); kP.put(M_paint, Bx(x0-0.3,3.14,-1.18,x0+0.3,3.3,1.18), { c:'#1e1f21' }); kP.put(M_paint, Bx(x0-0.3,1.0,-1.18,x0+0.3,1.08,1.18), { c:'#1e1f21' }); for(const zz of [-1,1]) kI.put(M_interior, Bx(x0-0.32,1.13,zz*1.1,x0+0.32,3.14,zz*1.12), { c:'#3c3f43' }); kI.put(M_interior, Bx(x0-0.32,3.12,-1.12,x0+0.32,3.14,1.12), { c:'#3c3f43' }); kI.put(M_interior, Bx(x0-0.32,1.08,-1.1,x0+0.32,1.13,1.1), { c:'#6d7276' }); }
     // underframe equipment and bogies
     kP.put(M_paint, Bx(car.c-5.6,0.36,-1.18,car.c+5.6,0.96,1.18), { c:'#2b2d30' });
     for(const bs of [-1,1]){ const bx=car.c+bs*7.85-(car.head?car.head*0.8:0);
@@ -1390,6 +1409,7 @@ function buildTrainGeometry(line){
     // interior: floor, lining, seats between doors, poles, grab rails, ceiling light lines
     const ix0=car.head>0?x0+0.3:x0+0.3, ix1=car.head>0?x1-2.8:x1-0.3, jx0=car.head<0?x0+2.8:ix0;
     kI.put(M_interior, Bx(jx0,1.08,-1.40,ix1,1.13,1.40), { c:'#8a8f93' });
+    if(car.head>0) kI.put(M_interior, Bx(ix1,1.13,-1.4,ix1+0.05,3.3,1.4), { c:'#dfe3e6' }); if(car.head<0) kI.put(M_interior, Bx(jx0-0.05,1.13,-1.4,jx0,3.3,1.4), { c:'#dfe3e6' });
     for(const s of [-1,1]){
       kI.put(M_interior, Bx(jx0,1.13,s*1.40,ix1,1.95,s*1.42), { c:'#d6dadc' });
       kI.put(M_interior, Bx(jx0,2.88,s*1.36,ix1,3.3,s*1.42), { c:'#e8ebec' });
@@ -1641,9 +1661,10 @@ function drawPIDS(P, t){
    Camera: walk on an island, free look, orbit; presets and transitions
    ===================================================================== */
 const EYE_H=1.62;
-const CAM={ mode:'walk', x:-20, z:zW(ISL[0],2.6), y:EYE_H, yaw:-Math.PI/2+0.15, pitch:0, fov:62, isl:ISL[0],
-  orbit:{ tx:0, ty:0, tz:0, r:150, az:-0.75, el:0.6 }, tween:null, cut:false, keys:{}, joy:{x:0,y:0}, bob:0 };
+const CAM={ mode:'walk', level:'plat', x:-20, z:zW(ISL[0],2.6), y:EYE_H, fy:0, yaw:-Math.PI/2+0.15, pitch:0, fov:62, isl:ISL[0],
+  orbit:{ tx:0, ty:0, tz:0, r:150, az:-0.75, el:0.6 }, tween:null, cut:false, keys:{}, joy:{x:0,y:0}, bob:0, lane:null, u:0, w:0, lift:null, train:null, fade:null };
 const lookAt=(from,to)=>{ const dx=to[0]-from[0], dy=to[1]-from[1], dz=to[2]-from[2]; return { yaw:Math.atan2(-dx,-dz), pitch:Math.atan2(dy,Math.hypot(dx,dz)) }; };
+const EYEVIEW=lookAt([EYE.x+13,B1+EYE_H,12.5],[EYE.x,B1C-1,EYE.z]);
 const PRESETS=[
   { n:'站台中部', e:'Platform',        mode:'walk', isl:0, x:-20, zp:2.6, yaw:-Math.PI/2+0.15, pitch:-0.02 },
   { n:'屏蔽门前', e:'Screen doors',    mode:'walk', isl:0, x:DOORS[21].x+3.2, zp:2.9, yaw:0.62, pitch:-0.05 },
@@ -1653,14 +1674,12 @@ const PRESETS=[
   { n:'轨行区',   e:'Trackside',       mode:'look', x:66, y:0.35, z:0, at:[100,0.2,1.2] },
   { n:'北岛',     e:'North island',    mode:'walk', isl:1, x:-8, zp:2.7, yaw:-Math.PI/2-0.15, pitch:-0.02 },
   { n:'全景剖视', e:'Cutaway',         mode:'orbit', tx:8, ty:0, tz:0, r:118, az:-0.62, el:0.6, cut:true },
-  { n:'深圳之眼', e:'The Eye · B1',    mode:'look', x:EYE.x+13, y:B1+1.6, z:12.5, at:[EYE.x,B1C-1,EYE.z] },
+  { n:'深圳之眼', e:'The Eye · B1',    mode:'walk', level:'b1', x:EYE.x+13, z:12.5, yaw:EYEVIEW.yaw, pitch:EYEVIEW.pitch },
 ];
-function camPose(){ // current camera pose as [pos, quaternion, fov]
-  return { p:camera.position.clone(), q:camera.quaternion.clone(), fov:camera.fov };
-}
+function camPose(){ return { p:camera.position.clone(), q:camera.quaternion.clone(), fov:camera.fov }; }
 function poseOf(pr){
   const p=new THREE.Vector3(), e=new THREE.Euler(0,0,0,'YXZ');
-  if(pr.mode==='walk'){ const isl=ISL[pr.isl]; p.set(pr.x,EYE_H,zW(isl,pr.zp)); e.set(pr.pitch,pr.yaw,0); }
+  if(pr.mode==='walk'){ if(pr.level==='b1') p.set(pr.x,B1+EYE_H,pr.z); else p.set(pr.x,EYE_H,zW(ISL[pr.isl],pr.zp)); e.set(pr.pitch,pr.yaw,0); }
   else if(pr.mode==='look'){ p.set(pr.x,pr.y,pr.z); const l=lookAt([pr.x,pr.y,pr.z],pr.at); e.set(l.pitch,l.yaw,0); }
   else { const o=pr; p.set(o.tx+o.r*Math.cos(o.el)*Math.sin(o.az), o.ty+o.r*Math.sin(o.el), o.tz+o.r*Math.cos(o.el)*Math.cos(o.az)); const l=lookAt([p.x,p.y,p.z],[o.tx,o.ty,o.tz]); e.set(l.pitch,l.yaw,0); }
   return { p, q:new THREE.Quaternion().setFromEuler(e), fov:pr.mode==='orbit'?45:62 };
@@ -1668,9 +1687,12 @@ function poseOf(pr){
 let curPreset=0;
 function applyPreset(i, instant=false){
   const pr=PRESETS[i]; curPreset=i; const to=poseOf(pr);
-  setCut(!!pr.cut);
+  setCut(!!pr.cut); if(CAM.fade){ CAM.fade=null; finalPass.uniforms.fade.value=0; }
   const fin=()=>{ CAM.mode=pr.mode; CAM.fov=to.fov;
-    if(pr.mode==='walk'){ CAM.isl=ISL[pr.isl]; CAM.x=pr.x; CAM.z=zW(CAM.isl,pr.zp); CAM.y=EYE_H; CAM.yaw=pr.yaw; CAM.pitch=pr.pitch; }
+    if(pr.mode==='walk'){ CAM.level=pr.level||'plat'; CAM.lane=CAM.lift=CAM.train=null;
+      if(CAM.level==='b1'){ CAM.x=pr.x; CAM.z=pr.z; CAM.fy=B1; CAM.isl=pr.z>0?ISL[0]:ISL[1]; }
+      else { CAM.isl=ISL[pr.isl]; CAM.x=pr.x; CAM.z=zW(CAM.isl,pr.zp); CAM.fy=0; }
+      CAM.yaw=pr.yaw; CAM.pitch=pr.pitch; }
     else if(pr.mode==='look'){ CAM.x=pr.x; CAM.y=pr.y; CAM.z=pr.z; const l=lookAt([pr.x,pr.y,pr.z],pr.at); CAM.yaw=l.yaw; CAM.pitch=l.pitch; }
     else Object.assign(CAM.orbit,{ tx:pr.tx, ty:pr.ty, tz:pr.tz, r:pr.r, az:pr.az, el:pr.el });
     document.body.classList.toggle('orbit', pr.mode!=='walk'); syncButtons(); };
@@ -1679,29 +1701,105 @@ function applyPreset(i, instant=false){
   CAM.tween={ from:camPose(), to, t:0, dur:1.5, fin }; CAM.mode='tween';
 }
 function setCut(v){ CAM.cut=v; upper.visible=!v; scene.fog.near=v?420:150; scene.fog.far=v?1100:520; $('#b-cut').classList.toggle('on',v); }
-function collide(isl){ // keep the walker on the island and out of columns, escalator wedges, the lift and benches
-  let zp=isl.s*CAM.z-E14; let x=CAM.x;
-  x=clamp(x,-PX+0.6,PX-0.6); zp=clamp(zp,0.45,ISW-0.45);
-  for(const zr of [4.4,11.6]){ const i=Math.round((x+85.5)/9.5); if(i>=0&&i<19){ const cx=COLX(i), dx=x-cx, dz=zp-zr, d=Math.hypot(dx,dz), r=0.85; if(d<r&&d>1e-4){ x=cx+dx/d*r; zp=zr+dz/d*r; } } }
-  const boxes=[]; for(const G of ESC){ const a=G.xf-G.dir*0.3, b=G.xf+G.dir*(ELAND+ERUN+0.2); boxes.push([Math.min(a,b),Math.max(a,b),4.7,11.3]); }
-  boxes.push([ELEV_X-1.45,ELEV_X+1.45,6.5,9.5]); for(const b of BENCH_BAYS){ boxes.push([bayX(b)-1.4,bayX(b)+1.4,3.95,4.85]); boxes.push([bayX(b)-1.4,bayX(b)+1.4,11.15,12.05]); }
-  for(const [x0,x1,z0,z1] of boxes){ if(x>x0&&x<x1&&zp>z0&&zp<z1){ const d=[x-x0,x1-x,zp-z0,z1-zp], m=Math.min(...d); if(m===d[0]) x=x0; else if(m===d[1]) x=x1; else if(m===d[2]) zp=z0; else zp=z1; } }
-  CAM.x=x; CAM.z=zW(isl,zp);
+
+/* ---------------- walking: island, escalator & stair lanes, B1 concourse, lift car, train ---------------- */
+const LANES=[]; for(const isl of ISL) for(const g of ESC) for(const [zp,half,kind] of [[5.85,0.4,'up'],[7.55,0.4,'down'],[9.75,1.02,'stair']]) LANES.push({ isl, g, zp, half, kind });
+const laneY=(L,u)=>L.kind==='stair'? clamp((u-ELAND)*SLOPE,0,B1) : escY(clamp(u,0,EL));
+const B1COLS=[]; for(const x of [-70,-10,20,70]) for(const z of [-19,0,19]) if(Math.hypot(x-EYE.x,z-EYE.z)>8) B1COLS.push([x,z]);
+const PAIR={ S14:'N14', N14:'S14', S11:'N11', N11:'S11' };   // where a ride continues after the tunnel
+const zpOfW=(isl,z)=>isl.s*z-E14;
+function doorWindow(isl, zpEdge, x){ // open screen door + train door at this x on this platform edge → that train
+  const E=EDGES.find(e=>e.isl===isl&&e.zp===zpEdge), S=SCHED.find(q=>q.id===E.track), P=PSD.find(p=>p.track===E.track);
+  if(!(S.state.door>0.85&&P.open>0.85)) return null;
+  return DOORS.some(d=>Math.abs(x-d.x)<0.6)?S:null;
 }
-function updateCamera(dt){
-  if(CAM.mode==='tween'){ const T=CAM.tween; T.t+=dt/T.dur; const k=T.t>=1?1:1-Math.pow(1-T.t,3)*(T.t<0.5?1:1); const e=T.t<1? (T.t<0.5?4*T.t*T.t*T.t:1-Math.pow(-2*T.t+2,3)/2) : 1;
+function pushBoxes(x,z,boxes){ for(const [x0,x1,z0,z1] of boxes){ if(x>x0&&x<x1&&z>z0&&z<z1){ const d=[x-x0,x1-x,z-z0,z1-z], m=Math.min(...d); if(m===d[0]) x=x0; else if(m===d[1]) x=x1; else if(m===d[2]) z=z0; else z=z1; } } return [x,z]; }
+function pushCircle(x,z,cx,cz,r){ const dx=x-cx, dz=z-cz, d=Math.hypot(dx,dz); return d<r&&d>1e-4? [cx+dx/d*r, cz+dz/d*r] : [x,z]; }
+function enterLane(L,u,zp){ CAM.level='lane'; CAM.lane=L; CAM.u=u; CAM.w=zp; CAM.isl=L.isl; const top=u>EL/2;
+  toast(L.kind==='stair'?(top?'楼梯 · 下到站台':'楼梯 · 上到 B1 站厅') : L.kind==='up'?(top?'这是上行扶梯':'扶梯上行 · 前往 B1 站厅') : (top?'扶梯下行 · 前往站台':'这是下行扶梯')); }
+function enterLift(L){ CAM.level='lift'; CAM.lift=L; CAM.isl=L.isl; const li=liftInfo(L); if(li.floor==='B2'&&L.t<12.4) L.t=12.4; if(li.floor==='B1'&&L.t<34.4) L.t=34.4; toast(li.floor==='B2'?'无障碍电梯 · 上行至 B1 站厅':'无障碍电梯 · 下行至站台'); }
+function enterTrain(S, wx, wz){ S.train.group.updateMatrixWorld(); const v=S.train.group.worldToLocal(new THREE.Vector3(wx,RAIL+1.13,wz)); CAM.level='train'; CAM.train={ S, lx:v.x, lz:v.z };
+  toast(S.kind==='dep'?`已上车 · ${S.line} 号线开往${S.dest}`:`已上车 · 本车终到岗厦北，关门后进折返线`); }
+function platMove(wx,wz){
+  const isl=CAM.isl; let x=CAM.x+wx, zp=zpOfW(isl,CAM.z+wz);
+  const lo=doorWindow(isl,0,x)?-0.5:0.45, hi=doorWindow(isl,ISW,x)?ISW+0.5:ISW-0.45;
+  x=clamp(x,-PX+0.6,PX-0.6); zp=clamp(zp,lo,hi);
+  if(zp<-0.3||zp>ISW+0.3){ const S=doorWindow(isl,zp<0?0:ISW,x); if(S){ enterTrain(S,x,zW(isl,zp)); return; } }
+  for(const L of LANES){ if(L.isl!==isl) continue; const u=(x-L.g.xf)*L.g.dir; if(u>-0.25&&u<0.6&&Math.abs(zp-L.zp)<L.half){ CAM.x=x; CAM.z=zW(isl,zp); enterLane(L,Math.max(u,0),zp); return; } }
+  const lift=LIFTS.find(l=>l.isl===isl), li=liftInfo(lift);
+  if(Math.abs(x-ELEV_X)<0.6&&zp>6.0&&zp<7.4){ if(li.floor==='B2'&&li.open>0.85&&zp>6.45){ CAM.x=x; CAM.z=zW(isl,zp); enterLift(lift); return; } if(li.floor==='B1'&&lift.t<34.4) lift.t=34.4; }
+  for(const zr of [4.4,11.6]){ const i=Math.round((x+85.5)/9.5); if(i>=0&&i<19) [x,zp]=pushCircle(x,zp,COLX(i),zr,0.85); }
+  const boxes=[]; for(const G of ESC){ const a=G.xf, b=G.xf+G.dir*(ELAND+ERUN+0.2); boxes.push([Math.min(a,b),Math.max(a,b),4.75,11.25]); }
+  boxes.push([ELEV_X-1.45,ELEV_X+1.45,6.55,9.5]); for(const b of BENCH_BAYS){ boxes.push([bayX(b)-1.4,bayX(b)+1.4,3.95,4.85]); boxes.push([bayX(b)-1.4,bayX(b)+1.4,11.15,12.05]); }
+  [x,zp]=pushBoxes(x,zp,boxes);
+  CAM.x=x; CAM.z=zW(isl,zp); CAM.fy=0;
+}
+function laneMove(wx,wz,sdt){
+  const L=CAM.lane, g=L.g, isl=L.isl;
+  const u=CAM.u+wx*g.dir+(L.kind==='up'?0.45:L.kind==='down'?-0.45:0)*sdt;
+  const zp=clamp(CAM.w+isl.s*wz,L.zp-L.half,L.zp+L.half);
+  CAM.x=g.xf+g.dir*u; CAM.z=zW(isl,zp);
+  if(u<-0.3){ CAM.level='plat'; CAM.lane=null; CAM.fy=0; return; }
+  if(u>EL+0.25){ CAM.level='b1'; CAM.lane=null; CAM.fy=B1; toast('B1 站厅层 · 抬头看费马螺旋天花'); return; }
+  CAM.u=u; CAM.w=zp; CAM.fy=laneY(L,u);
+}
+function b1Move(wx,wz){
+  let x=clamp(CAM.x+wx,-108,108), z=clamp(CAM.z+wz,-29.4,29.4);
+  for(const L of LANES){ const u=(x-L.g.xf)*L.g.dir, zp=zpOfW(L.isl,z); if(u>EL-1.0&&u<EL+0.2&&Math.abs(zp-L.zp)<L.half){ CAM.x=x; CAM.z=z; enterLane(L,Math.min(u,EL),zp); return; } }
+  for(const lift of LIFTS){ const li=liftInfo(lift), zp=zpOfW(lift.isl,z); if(Math.abs(x-ELEV_X)<0.6&&zp>6.0&&zp<7.4){ if(li.floor==='B1'&&li.open>0.85&&zp>6.45){ CAM.x=x; CAM.z=z; enterLift(lift); return; } if(li.floor==='B2'&&lift.t<12.4) lift.t=12.4; } }
+  const boxes=[];
+  for(const isl of ISL){ for(const g of ESC){ const a=g.xf+g.dir*5.7, b=g.xf+g.dir*EL, za=zW(isl,4.7), zb=zW(isl,11.3); boxes.push([Math.min(a,b),Math.max(a,b),Math.min(za,zb),Math.max(za,zb)]); }
+    const za=zW(isl,6.55), zb=zW(isl,9.5); boxes.push([ELEV_X-1.45,ELEV_X+1.45,Math.min(za,zb),Math.max(za,zb)]); }
+  for(const [cx,cz] of B1COLS) [x,z]=pushCircle(x,z,cx,cz,0.95);
+  [x,z]=pushBoxes(x,z,boxes);
+  CAM.x=x; CAM.z=z; CAM.fy=B1; CAM.isl=z>0?ISL[0]:ISL[1];
+}
+function liftMove(wx,wz){
+  const L=CAM.lift, isl=L.isl, li=liftInfo(L);
+  const x=clamp(CAM.x+wx,ELEV_X-0.68,ELEV_X+0.68); let zp=clamp(zpOfW(isl,CAM.z+wz),li.open>0.85?6.2:7.25,8.75);
+  if(zp<6.5&&li.open>0.85){ const b1=li.floor==='B1'; CAM.level=b1?'b1':'plat'; CAM.lift=null; CAM.x=x; CAM.z=zW(isl,6.3); CAM.fy=b1?B1:0; if(b1) toast('B1 站厅层 · 抬头看费马螺旋天花'); return; }
+  CAM.x=x; CAM.z=zW(isl,zp); CAM.fy=L.car.position.y-0.02+0.12;
+}
+function trainMove(wx,wz){
+  const T=CAM.train, S=T.S, g=S.train.group, sg=S.dir>0?1:-1, st=S.state;
+  let lx=clamp(T.lx+wx*sg,-(TRAIN_LEN/2-2.95),TRAIN_LEN/2-2.95), lz=T.lz+wz*sg;
+  const atDoor=DOORS.some(d=>Math.abs(lx-d.x)<0.6), side=S.train.localSide, open=st.door>0.85&&S.edge&&S.edge.open>0.85;
+  let lo=atDoor?-1.35:-0.82, hi=atDoor?1.35:0.82; if(atDoor&&open){ if(side>0) hi=1.9; else lo=-1.9; }
+  lz=clamp(lz,lo,hi);
+  g.updateMatrixWorld();
+  if(atDoor&&open&&lz*side>1.62){ const w=g.localToWorld(new THREE.Vector3(lx,1.13,lz)); CAM.level='plat'; CAM.train=null; CAM.isl=S.isl; CAM.x=w.x; CAM.z=w.z; CAM.fy=0; toast('已下车 · 回到站台'); return; }
+  T.lx=lx; T.lz=lz; const w=g.localToWorld(_v.set(lx,1.13,lz)); CAM.x=w.x; CAM.z=w.z; CAM.fy=w.y;
+}
+function continueRide(){ // after the tunnel: a terminating train comes back from the turnback, an outbound one is swapped for the return train
+  const S=CAM.train.S, P=SCHED.find(q=>q.id===PAIR[S.id]);
+  const tc=((simT-P.T0)%HEADWAY+HEADWAY)%HEADWAY;
+  if(!(tc<P.A&&P.A-tc>12)){ simT+=(((P.A-22)-tc)%HEADWAY+HEADWAY)%HEADWAY; updateTrains(simT); }
+  CAM.train.S=P;
+  toast(S.kind==='arr'?`列车折返完毕 · 作为开往${P.dest}的列车重新进站`:`模型只建了岗厦北一站 · 已换乘返程列车，即将到达岗厦北`);
+}
+function walkMove(wx,wz,sdt){
+  if(CAM.level==='plat') platMove(wx,wz); else if(CAM.level==='lane') laneMove(wx,wz,sdt); else if(CAM.level==='b1') b1Move(wx,wz);
+  else if(CAM.level==='lift') liftMove(wx,wz); else if(CAM.level==='train') trainMove(wx,wz);
+}
+function updateCamera(dt, sdt=dt){
+  if(CAM.fade){ const F=CAM.fade; if(F.d!==0) F.v=clamp(F.v+F.d*dt*1.4,0,1); if(F.d>0&&F.v>=1){ const cb=F.cb; F.cb=null; F.d=0; F.hold=0.7; if(cb) cb(); } else if(F.d===0){ F.hold-=dt; if(F.hold<=0) F.d=-1; } else if(F.d<0&&F.v<=0) CAM.fade=null; finalPass.uniforms.fade.value=CAM.fade?F.v:0; }
+  if(CAM.mode==='tween'){ const T=CAM.tween; T.t+=dt/T.dur; const e=T.t<1? (T.t<0.5?4*T.t*T.t*T.t:1-Math.pow(-2*T.t+2,3)/2) : 1;
     camera.position.lerpVectors(T.from.p,T.to.p,e); camera.quaternion.slerpQuaternions(T.from.q,T.to.q,e); camera.fov=lerp(T.from.fov,T.to.fov,e); camera.updateProjectionMatrix();
     if(T.t>=1){ CAM.tween=null; T.fin(); } return; }
   if(CAM.mode==='walk'||CAM.mode==='look'){
+    let sway=0;
     if(CAM.mode==='walk'){
       const k=CAM.keys; let fx=(k.KeyW||k.ArrowUp?1:0)-(k.KeyS||k.ArrowDown?1:0)+(-CAM.joy.y), sx=(k.KeyD||k.ArrowRight?1:0)-(k.KeyA||k.ArrowLeft?1:0)+CAM.joy.x;
       const l=Math.hypot(fx,sx); if(l>1){ fx/=l; sx/=l; }
-      const sp=(k.ShiftLeft||k.ShiftRight?3.2:1.5)*dt;
-      if(l>0.01){ const cy=Math.cos(CAM.yaw), sy=Math.sin(CAM.yaw); CAM.x+=(-sy*fx+cy*sx)*sp; CAM.z+=(-cy*fx-sy*sx)*sp; CAM.bob+=dt*(k.ShiftLeft||k.ShiftRight?11:7.5)*Math.min(1,l); }
-      collide(CAM.isl);
+      const sp=(k.ShiftLeft||k.ShiftRight?3.2:1.5)*dt; let wx=0, wz=0;
+      if(l>0.01){ const cy=Math.cos(CAM.yaw), sy=Math.sin(CAM.yaw); wx=(-sy*fx+cy*sx)*sp; wz=(-cy*fx-sy*sx)*sp; CAM.bob+=dt*(k.ShiftLeft||k.ShiftRight?11:7.5)*Math.min(1,l); }
+      walkMove(wx,wz,sdt);
+      if(CAM.level==='train'){ const st=CAM.train.S.state, v=st.v/17; sway=(Math.sin(simT*5.3)*0.004+Math.sin(simT*1.9)*0.007)*v;
+        if(!CAM.fade&&((st.phase==='out'&&Math.abs(st.x)>140)||st.phase==='none')) CAM.fade={ v:0, d:1, cb:continueRide }; }
+      CAM.y=CAM.fy+EYE_H;
     }
     const bob=CAM.mode==='walk'?Math.sin(CAM.bob)*0.022:0;
-    camera.position.set(CAM.x, CAM.y+bob, CAM.z); camera.rotation.set(CAM.pitch, CAM.yaw, 0, 'YXZ');
+    camera.position.set(CAM.x, CAM.y+bob+sway, CAM.z); camera.rotation.set(CAM.pitch, CAM.yaw, 0, 'YXZ');
     if(Math.abs(camera.fov-CAM.fov)>0.01){ camera.fov=lerp(camera.fov,CAM.fov,Math.min(1,dt*8)); camera.updateProjectionMatrix(); }
   } else if(CAM.mode==='orbit'){
     const o=CAM.orbit; o.el=clamp(o.el,0.05,1.45); o.r=clamp(o.r,8,320);
@@ -1711,11 +1809,27 @@ function updateCamera(dt){
   }
 }
 function switchIsland(){
-  if(CAM.mode!=='walk') return;
-  const other=CAM.isl===ISL[0]?ISL[1]:ISL[0], zp=CAM.isl.s*CAM.z-E14;
+  if(CAM.mode!=='walk'||CAM.level!=='plat') return;
+  const other=CAM.isl===ISL[0]?ISL[1]:ISL[0], zp=zpOfW(CAM.isl,CAM.z);
   const to={ mode:'walk', isl:ISL.indexOf(other), x:CAM.x, zp, yaw:CAM.yaw, pitch:CAM.pitch };
   const tmp=PRESETS.length; PRESETS.push(to); applyPreset(tmp); PRESETS.pop(); curPreset=-1;
   document.querySelectorAll('.vbtn').forEach(b=>b.classList.remove('on'));
+}
+function hintText(){
+  if(CAM.mode!=='walk') return '';
+  if(CAM.level==='plat'){
+    const isl=CAM.isl, zp=zpOfW(isl,CAM.z);
+    for(const e of [0,ISW]) if(Math.abs(zp-e)<3){ const E=EDGES.find(q=>q.isl===isl&&q.zp===e), S=SCHED.find(q=>q.id===E.track);
+      if(S.state.door>0.85) return S.kind==='dep'?`车门已开 · 对准车门往前走就能上车（开往${S.dest}）`:'车门已开 · 这是终到车，上车后会随车进折返线'; }
+    for(const L of LANES){ if(L.isl!==isl) continue; const u=(CAM.x-L.g.xf)*L.g.dir; if(u>-5&&u<0.6&&zp>4.8&&zp<11.2) return '扶梯组：靠 14 号线一侧上行、中间下行、靠 11 号线一侧是楼梯，走上去即可去 B1 站厅'; }
+    if(Math.abs(CAM.x-ELEV_X)<3&&zp>4.4&&zp<7){ const li=liftInfo(LIFTS.find(l=>l.isl===isl)); return li.floor==='B2'&&li.open>0.5?'电梯门已开 · 走进去':'无障碍电梯 · 站在门口等电梯到达'; }
+    return '';
+  }
+  if(CAM.level==='train'){ const S=CAM.train.S, st=S.state; if(st.door>0.85&&S.edge&&S.edge.open>0.85) return '车门开着 · 走到车门口往外走就回到站台'; if(st.phase==='in') return '列车进站中'; if(st.phase==='out') return S.kind==='arr'?'列车驶入折返线':`列车开往${S.dest}`; return '车门已关'; }
+  if(CAM.level==='lane') return CAM.lane.kind==='stair'?'楼梯':CAM.lane.kind==='up'?'扶梯上行中':'扶梯下行中';
+  if(CAM.level==='lift'){ const li=liftInfo(CAM.lift); return li.open>0.85?'电梯门已开 · 走出去':'电梯运行中'; }
+  if(CAM.level==='b1') return '回站台：走到扶梯开口的下行扶梯或楼梯，或乘电梯';
+  return '';
 }
 
 /* ---------------- input ---------------- */
@@ -1826,11 +1940,13 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on
 }
 function hudTick(t){
   const [h,m,s]=hhmmss(t); $('#clock').textContent=`${h}:${m}:${s}`;
-  const onB1=camera.position.y>B1-0.5 && camera.position.y<B1C, south=camera.position.z>0;
+  const onB1=camera.position.y>B1-0.5 && camera.position.y<B1C, south=camera.position.z>0, walk=CAM.mode==='walk';
   const track=camera.position.y<0.8 && Math.abs(Math.abs(camera.position.z)-E14-ISW/2)>ISW/2;
-  const where=CAM.mode==='orbit'||CAM.cut? 'B2 站台层 · 全景' : onB1? 'B1 站厅层 · 深圳之眼' : track? 'B2 · 轨行区' : `B2 站台层 · ${south?'南':'北'}侧岛式站台`;
+  const TS=walk&&CAM.level==='train'?CAM.train.S:null;
+  const where=CAM.mode==='orbit'||CAM.cut? 'B2 站台层 · 全景' : TS? `${TS.line} 号线列车车厢` : walk&&CAM.level==='lift'? '无障碍电梯' : walk&&CAM.level==='lane'? (CAM.lane.kind==='stair'?'楼梯':'自动扶梯')+' · B2 ⇄ B1' : onB1? 'B1 站厅层 · 深圳之眼' : track? 'B2 · 轨行区' : `B2 站台层 · ${south?'南':'北'}侧岛式站台`;
   if($('#where').textContent!==where) $('#where').textContent=where;
-  const role=onB1?'费马螺旋天花 · 中央圆形采光天窗':south?'11 号线终到 ⇄ 14 号线开往沙田':'14 号线终到 ⇄ 11 号线开往碧头';
+  const role=TS? (TS.kind==='dep'?`开往 ${TS.dest}`:'终到岗厦北 · 之后进折返线') : onB1?'费马螺旋天花 · 中央圆形采光天窗':south?'11 号线终到 ⇄ 14 号线开往沙田':'14 号线终到 ⇄ 11 号线开往碧头';
+  const hint=STARTED?hintText():''; const he=$('#hint'); if(he.textContent!==hint){ he.textContent=hint; he.hidden=!hint; }
   if($('#role').textContent!==role){ $('#role').textContent=role; const bars=$('#hudbar').children; bars[0].style.background=`var(--l${south?11:14})`; bars[1].style.background=`var(--l${south?14:11})`; }
   const order=south?['S14','S11','N11','N14']:['N11','N14','S14','S11'];
   let html='';
@@ -1885,7 +2001,7 @@ function step(dt){
   const sdt=dt*SPEED; simT+=sdt;
   updateTrains(simT); trainEvents();
   PPL.update(dt,sdt); updateEscalators(sdt); updateLifts(sdt);
-  updateCamera(dt);
+  updateCamera(dt,sdt);
   pidsT-=dt; if(pidsT<=0){ pidsT=0.5; for(const P of PIDS) drawPIDS(P,simT); hudTick(simT); }
   updateAudio();
 }
