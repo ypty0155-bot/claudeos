@@ -27,12 +27,22 @@
     --f-text: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
     --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
     --gutter: clamp(16px, 5vw, 72px);
+    --cc: rgba(226, 179, 94, 0.72);
+    --corners:
+      linear-gradient(var(--cc), var(--cc)) left top / 18px 1px no-repeat,
+      linear-gradient(var(--cc), var(--cc)) left top / 1px 18px no-repeat,
+      linear-gradient(var(--cc), var(--cc)) right top / 18px 1px no-repeat,
+      linear-gradient(var(--cc), var(--cc)) right top / 1px 18px no-repeat,
+      linear-gradient(var(--cc), var(--cc)) left bottom / 18px 1px no-repeat,
+      linear-gradient(var(--cc), var(--cc)) left bottom / 1px 18px no-repeat,
+      linear-gradient(var(--cc), var(--cc)) right bottom / 18px 1px no-repeat,
+      linear-gradient(var(--cc), var(--cc)) right bottom / 1px 18px no-repeat;
   }
   * { box-sizing: border-box; }
   html { background: var(--night); }
   body {
     margin: 0;
-    background: var(--night);
+    background: radial-gradient(120% 80% at 63% 28%, #1A2446 0%, var(--night) 62%) fixed, var(--night);
     color: var(--moon);
     font-family: var(--f-text);
     font-size: 16px;
@@ -48,8 +58,9 @@
     position: fixed; inset: 0; width: 100%; height: 100%;
     display: block; z-index: 0;
     touch-action: pan-y; cursor: grab;
-    background: radial-gradient(120% 80% at 63% 28%, #1A2446 0%, var(--night) 62%);
+    opacity: 0; transition: opacity 1.6s ease;
   }
+  #gl.ready { opacity: 1; }
   #gl.grabbing { cursor: grabbing; }
   .css-moon { display: none; }
   .no-gl .css-moon {
@@ -78,6 +89,14 @@
   }
   .now b { font-family: var(--f-text); font-weight: 600; color: var(--gold); letter-spacing: 0.16em; }
   .now-ch { display: none; }
+  .top-right { display: flex; align-items: center; gap: 0.9rem; pointer-events: auto; }
+  .snd {
+    display: inline-grid; place-items: center; width: 2rem; height: 2rem; padding: 0;
+    border-radius: 50%; border: 1px solid rgba(226, 179, 94, 0.55); background: rgba(9, 14, 28, 0.5);
+    color: var(--gold); font-family: var(--f-display); font-size: 1rem; line-height: 1; cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .snd[aria-pressed="true"] { background: var(--gold); color: #1B1408; box-shadow: 0 0 0 4px rgba(226, 179, 94, 0.16); }
 
   .seal {
     display: inline-grid; place-items: center; flex: none;
@@ -87,6 +106,13 @@
     border-radius: 3px; box-shadow: inset 0 0 0 2px rgba(248, 235, 221, 0.22);
   }
   .seal.tall { display: inline-flex; flex-direction: column; justify-content: center; align-items: center; width: 1.6rem; height: 2.7rem; font-size: 1rem; line-height: 1.05; }
+  .seal.square {
+    display: grid; grid-template-columns: 1fr 1fr; width: 2.9rem; height: 2.9rem; padding: 0.22rem;
+    font-size: 1.12rem; line-height: 1.05; transform: rotate(-2deg);
+    box-shadow: inset 0 0 0 2px rgba(248, 235, 221, 0.28), 0 0 0 1px rgba(196, 64, 47, 0.35);
+  }
+  .seal.square span { display: grid; place-items: center; }
+  .v-col { display: flex; flex-direction: column; align-items: center; gap: 1.1rem; flex: none; }
   /* 竖排：逐字堆叠（部分书法字体缺竖排度量，writing-mode 会叠字） */
   .vt { display: flex; flex-direction: column; align-items: center; }
   .vt > span { display: block; line-height: 1.1; }
@@ -95,6 +121,13 @@
     position: fixed; z-index: 6; right: clamp(8px, 1.6vw, 26px); top: 50%; transform: translateY(-50%);
     list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem;
   }
+  .phases::before, .phases::after {
+    content: ""; position: absolute; right: calc(0.32rem + 8.5px); top: 16px; width: 1px;
+  }
+  .phases::before { bottom: 16px; background: var(--line-strong); }
+  .phases::after { height: calc((100% - 32px) * var(--p, 0)); background: linear-gradient(var(--gold), rgba(226, 179, 94, 0.4)); }
+  .phases li { position: relative; z-index: 1; }
+  .phases circle { fill: var(--night); }
   .phases button {
     display: flex; flex-direction: row-reverse; align-items: center; gap: 0.6rem;
     background: none; border: 0; padding: 0.32rem; margin: 0; cursor: pointer;
@@ -151,10 +184,11 @@
   .panel {
     display: flex; align-items: flex-start; gap: clamp(1rem, 2.4vw, 1.9rem);
     padding: clamp(1.2rem, 2.6vw, 2.2rem);
-    background: var(--panel);
+    background: var(--corners), var(--panel);
+    background-origin: border-box;
     -webkit-backdrop-filter: blur(16px) saturate(125%);
     backdrop-filter: blur(16px) saturate(125%);
-    border: 1px solid var(--line); border-radius: 3px;
+    border: 1px solid var(--line); border-radius: 2px;
   }
   .v-title {
     flex: none; margin: 0; gap: 0.06em;
@@ -351,7 +385,7 @@
     .now-date { display: none; }
     .outro { align-items: end; padding-block: 46vh 8vh; }
     .hero-inner, .outro-inner {
-      padding: 1.1rem 1rem 1.25rem; background: var(--panel);
+      padding: 1.1rem 1rem 1.25rem; background: var(--corners), var(--panel); background-origin: border-box;
       -webkit-backdrop-filter: blur(16px) saturate(125%); backdrop-filter: blur(16px) saturate(125%);
       border: 1px solid var(--line); border-radius: 3px;
     }
@@ -361,6 +395,7 @@
   }
   .nw { white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) {
+    #gl { transition: none; }
     .die.rolling { animation: none; }
     .start, .chip span, .phases .lbl { transition: none; }
   }
@@ -383,9 +418,12 @@
     <span class="seal tall" aria-hidden="true"><span>中</span><span>秋</span></span>
     <span class="brand-name">小饼如嚼月</span>
   </a>
-  <div class="now">
-    <span class="now-date">丙午年八月十五 · <span id="countdown">2026.09.25</span></span>
-    <span class="now-ch" id="nowCh">封面</span>
+  <div class="top-right">
+    <div class="now">
+      <span class="now-date">丙午年八月十五 · <span id="countdown">2026.09.25</span></span>
+      <span class="now-ch" id="nowCh">封面</span>
+    </div>
+    <button class="snd" id="snd" type="button" aria-pressed="false" aria-label="打开古筝音效" title="音效：每翻一章拨一声古筝">声</button>
   </div>
 </header>
 
@@ -395,7 +433,10 @@
   <!-- 封面 -->
   <section class="hero" id="ch0" data-ch="0" data-name="封面">
     <div class="hero-inner">
+      <div class="v-col">
       <h1 class="hero-title vt" aria-label="小饼如嚼月"><span>小</span><span>饼</span><span>如</span><span>嚼</span><span>月</span></h1>
+        <span class="seal square" aria-hidden="true"><span>月</span><span>花</span><span>圆</span><span>好</span></span>
+      </div>
       <div class="hero-copy">
         <p class="attrib"><q>小饼如嚼月，中有酥和饴</q>北宋 · 苏轼《留别廉守》</p>
         <p class="hero-lead">从天上取下一轮月亮，用六道工序把它做成一枚广式月饼；第七道工序，是和家人一起赏月。每做一步，讲一段中秋。</p>
@@ -566,7 +607,10 @@
   <!-- 尾声 -->
   <section class="outro" id="ch8" data-ch="8" data-name="千里婵娟">
     <div class="outro-inner">
+      <div class="v-col">
       <p class="v-poem" aria-label="但愿人长久，千里共婵娟"><span class="col vt"><span>但</span><span>愿</span><span>人</span><span>长</span><span>久</span></span><span class="col vt"><span>千</span><span>里</span><span>共</span><span>婵</span><span>娟</span></span></p>
+        <span class="seal square" aria-hidden="true"><span>中</span><span>丙</span><span>秋</span><span>午</span></span>
+      </div>
       <div class="outro-side">
         <p class="attrib"><q>明月几时有？把酒问青天。</q>北宋 · 苏轼《水调歌头》，丙辰中秋（1076 年）作于密州</p>
         <p>月饼做好了，月亮也升起来了。愿你今年中秋，身边有人，杯里有酒，天上有月。</p>
@@ -631,11 +675,15 @@
     navButtons.push(b);
   }
   const nowCh = $('#nowCh');
-  let lastActive = -1;
+  let lastActive = -1, lastP = -1;
   function updateNav(s) {
+    const p = clamp((s - 1) / 6);
+    if (Math.abs(p - lastP) > 0.002) { lastP = p; navList.style.setProperty('--p', p.toFixed(3)); }
     const k = Math.round(s);
     if (k === lastActive) return;
+    const first = lastActive === -1;
     lastActive = k;
+    if (!first) Sound.chapter(k);
     navButtons.forEach((b, i) => { if (i + 1 === k) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
     nowCh.textContent = k >= 1 && k <= 7 ? `${NUMS[k]} · ${sections[k].dataset.name}` : sections[k] ? sections[k].dataset.name : '';
   }
@@ -667,6 +715,127 @@
     $('#fillNote').textContent = f.note;
     $$('.fill-name').forEach((el) => { el.textContent = f.label; });
     fillListeners.forEach((fn) => fn(f));
+  });
+
+  /* ================= 古筝音效（默认关闭，点顶栏的“声”打开） ================= */
+  const Sound = (() => {
+    let ctx = null, out = null, dry = null, wet = null, on = false;
+    const cache = new Map();
+    /* D 调五声：宫 D、商 E、角 F♯、徵 A、羽 B，跨三个八度 */
+    const SCALE = [146.83, 164.81, 185.0, 220.0, 246.94, 293.66, 329.63, 369.99, 440.0, 493.88, 587.33, 659.25, 739.99, 880.0];
+    const PHRASES = {
+      0: [[5, 0, 0.34], [7, 0.22, 0.24]],
+      1: [[5, 0, 0.4], [7, 0.2, 0.28], [9, 0.42, 0.22]],
+      2: [[6, 0, 0.4], [8, 0.2, 0.28], [10, 0.44, 0.2]],
+      3: [[7, 0, 0.4], [9, 0.2, 0.28], [8, 0.46, 0.2]],
+      4: [[3, 0, 0.42], [5, 0.04, 0.3], [7, 0.24, 0.3], [10, 0.5, 0.2]],
+      5: [[8, 0, 0.36], [10, 0.22, 0.26], [9, 0.5, 0.2]],
+      6: [[5, 0, 0.4], [9, 0.22, 0.3], [7, 0.5, 0.24]],
+      7: [[5, 0, 0.36], [7, 0.15, 0.3], [9, 0.3, 0.3], [10, 0.45, 0.26], [12, 0.62, 0.3]],
+      8: [[0, 0, 0.34], [5, 0.1, 0.3], [7, 0.2, 0.3], [9, 0.3, 0.28], [12, 0.42, 0.3], [13, 0.72, 0.22]],
+    };
+    /* Karplus–Strong 拨弦 */
+    function pluck(f) {
+      if (cache.has(f)) return cache.get(f);
+      const sr = ctx.sampleRate, len = Math.floor(sr * 3), n = Math.max(2, Math.round(sr / f));
+      const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+      const ring = new Float32Array(n);
+      for (let i = 0; i < n; i++) ring[i] = Math.random() * 2 - 1;
+      for (let k = 0; k < 3; k++) for (let i = 0; i < n; i++) ring[i] = 0.5 * (ring[i] + ring[(i + 1) % n]);
+      const loss = Math.pow(0.001, 1 / (f * 2.6));
+      let idx = 0, peak = 0;
+      for (let i = 0; i < len; i++) {
+        const nx = (idx + 1) % n, v = ring[idx];
+        d[i] = v;
+        peak = Math.max(peak, Math.abs(v));
+        ring[idx] = loss * 0.5 * (v + ring[nx]);
+        idx = nx;
+      }
+      const fade = Math.floor(sr * 0.25);
+      for (let i = 0; i < len; i++) d[i] = (d[i] / (peak || 1)) * 0.9 * (i > len - fade ? (len - i) / fade : 1);
+      cache.set(f, buf);
+      return buf;
+    }
+    function send(node) {
+      if (ctx.createStereoPanner) {
+        const pan = ctx.createStereoPanner();
+        pan.pan.value = (Math.random() - 0.5) * 0.6;
+        node.connect(pan); pan.connect(dry); pan.connect(wet);
+      } else { node.connect(dry); node.connect(wet); }
+    }
+    function note(i, when, vel) {
+      const src = ctx.createBufferSource();
+      src.buffer = pluck(SCALE[clamp(i, 0, SCALE.length - 1)]);
+      const g = ctx.createGain();
+      g.gain.value = vel;
+      src.connect(g); send(g);
+      src.start(ctx.currentTime + when);
+    }
+    function click(when, vel) {
+      const len = Math.floor(ctx.sampleRate * 0.03);
+      const b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
+      const src = ctx.createBufferSource();
+      src.buffer = b;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.frequency.value = 2200 + Math.random() * 2200; bp.Q.value = 5;
+      const g = ctx.createGain();
+      g.gain.value = vel;
+      src.connect(bp); bp.connect(g); send(g);
+      src.start(ctx.currentTime + when);
+    }
+    function init() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctx = new AC();
+      out = ctx.createGain(); out.gain.value = 0; out.connect(ctx.destination);
+      const sr = ctx.sampleRate, irLen = Math.floor(sr * 2.8), ir = ctx.createBuffer(2, irLen, sr);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < irLen; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / irLen, 3.5); }
+      const verb = ctx.createConvolver(); verb.buffer = ir;
+      wet = ctx.createGain(); wet.gain.value = 0.4; wet.connect(verb); verb.connect(out);
+      dry = ctx.createGain(); dry.gain.value = 0.8; dry.connect(out);
+      /* 湖水：很轻的低通棕噪声 */
+      const nb = ctx.createBuffer(1, sr * 4, sr), nd = nb.getChannelData(0);
+      let b = 0;
+      for (let i = 0; i < nd.length; i++) { b = (b + 0.02 * (Math.random() * 2 - 1)) / 1.02; nd[i] = b * 3.5; }
+      const edge = Math.floor(sr * 0.3);
+      for (let i = 0; i < edge; i++) { const k = i / edge; nd[i] *= k; nd[nd.length - 1 - i] *= k; }
+      const ns = ctx.createBufferSource(); ns.buffer = nb; ns.loop = true;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 520;
+      const ng = ctx.createGain(); ng.gain.value = 0.05;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 0.07;
+      const lg = ctx.createGain(); lg.gain.value = 0.025;
+      lfo.connect(lg); lg.connect(ng.gain); lfo.start();
+      ns.connect(lp); lp.connect(ng); ng.connect(out); ns.start();
+      return true;
+    }
+    async function toggle() {
+      if (!ctx && !init()) return false;
+      on = !on;
+      const t = ctx.currentTime;
+      out.gain.cancelScheduledValues(t);
+      if (on) { try { await ctx.resume(); } catch (err) { /* 浏览器拒绝时保持静音 */ } out.gain.setTargetAtTime(0.9, ctx.currentTime, 0.15); }
+      else { out.gain.setTargetAtTime(0, t, 0.08); setTimeout(() => { if (!on) ctx.suspend(); }, 700); }
+      return on;
+    }
+    return {
+      toggle,
+      get on() { return on; },
+      chapter(k) { if (on) (PHRASES[k] || PHRASES[0]).forEach(([i, t, v]) => note(i, t, v)); },
+      dice() { if (on) for (let i = 0; i < 10; i++) click(Math.random() * 0.62, 0.35 + Math.random() * 0.4); },
+      prize(rank) {
+        if (!on) return;
+        if (rank < 0) { note(2, 0.02, 0.22); return; }
+        for (let i = 0; i < 6 - rank; i++) note(5 + i, i * 0.09, 0.3);
+      },
+    };
+  })();
+  const sndBtn = $('#snd');
+  sndBtn.addEventListener('click', async () => {
+    const st = await Sound.toggle();
+    sndBtn.setAttribute('aria-pressed', String(st));
+    sndBtn.setAttribute('aria-label', st ? '关闭古筝音效' : '打开古筝音效');
+    if (st) Sound.chapter(Math.max(0, lastActive));
   });
 
   /* ================= 博饼 ================= */
@@ -744,11 +913,13 @@
       if (sum === 0) msg += '这一套会饼全部博完。';
       result.innerHTML = `<b>${r.name}</b>${msg}`;
       renderTable(r.tier);
+      Sound.prize(tier ? TIERS.indexOf(tier) : -1);
       rollBtn.disabled = false;
     }
     rollBtn.addEventListener('click', () => {
       rollBtn.disabled = true;
       const vals = Array.from({ length: 6 }, () => 1 + Math.floor(Math.random() * 6));
+      Sound.dice();
       if (reduceMotion) { finish(vals); return; }
       dice.forEach((d) => d.classList.add('rolling'));
       let n = 0;
@@ -823,6 +994,79 @@
     const OUT = `
       #include <tonemapping_fragment>
       #include <colorspace_fragment>`;
+
+    /* ---------- 后期：柔光、青暗暖亮的调色、暗角、细颗粒 ---------- */
+    const post = (() => {
+      const ext = renderer.extensions;
+      if (!renderer.capabilities.isWebGL2 || !(ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float'))) return null;
+      const VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+      const hf = { type: THREE.HalfFloatType, depthBuffer: false };
+      const sceneRT = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType, samples: 4 });
+      const brightRT = new THREE.WebGLRenderTarget(2, 2, hf);
+      const levels = [2, 4, 8, 16].map((d) => ({ d, w: 2, h: 2, a: new THREE.WebGLRenderTarget(2, 2, hf), b: new THREE.WebGLRenderTarget(2, 2, hf) }));
+      const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+      quad.frustumCulled = false;
+      const qs = new THREE.Scene();
+      qs.add(quad);
+      const mk = (uniforms, fs, toneMapped = false) => new THREE.ShaderMaterial({ uniforms, vertexShader: VS, fragmentShader: fs, depthTest: false, depthWrite: false, toneMapped });
+      const brightMat = mk({ tSrc: { value: null }, uTh: { value: 1.1 } }, `uniform sampler2D tSrc; uniform float uTh; varying vec2 vUv;
+        void main(){ vec3 c = texture2D(tSrc, vUv).rgb; float l = max(max(c.r, c.g), c.b); gl_FragColor = vec4(c * smoothstep(uTh, uTh + 0.7, l), 1.0); }`);
+      const blurMat = mk({ tSrc: { value: null }, uDir: { value: new THREE.Vector2() } }, `uniform sampler2D tSrc; uniform vec2 uDir; varying vec2 vUv;
+        void main(){
+          vec3 c = texture2D(tSrc, vUv).rgb * 0.2270270270;
+          c += (texture2D(tSrc, vUv + uDir * 1.3846153846).rgb + texture2D(tSrc, vUv - uDir * 1.3846153846).rgb) * 0.3162162162;
+          c += (texture2D(tSrc, vUv + uDir * 3.2307692308).rgb + texture2D(tSrc, vUv - uDir * 3.2307692308).rgb) * 0.0702702703;
+          gl_FragColor = vec4(c, 1.0);
+        }`);
+      const compU = {
+        tScene: { value: sceneRT.texture }, tB0: { value: levels[0].a.texture }, tB1: { value: levels[1].a.texture },
+        tB2: { value: levels[2].a.texture }, tB3: { value: levels[3].a.texture },
+        uBloom: { value: 0.42 }, uTime, uRes: { value: new THREE.Vector2(1, 1) },
+      };
+      const compMat = mk(compU, `uniform sampler2D tScene, tB0, tB1, tB2, tB3; uniform float uBloom, uTime; uniform vec2 uRes; varying vec2 vUv;
+        float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+        void main(){
+          vec3 c = texture2D(tScene, vUv).rgb;
+          vec3 b = texture2D(tB0, vUv).rgb * 0.5 + texture2D(tB1, vUv).rgb * 0.7 + texture2D(tB2, vUv).rgb * 0.9 + texture2D(tB3, vUv).rgb * 1.1;
+          c += b * uBloom;
+          float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+          c *= mix(vec3(0.93, 0.98, 1.07), vec3(1.0), smoothstep(0.0, 0.25, lum));
+          c *= mix(vec3(1.0), vec3(1.05, 1.0, 0.93), smoothstep(0.35, 1.6, lum));
+          vec2 q = vUv - 0.5; q.x *= uRes.x / uRes.y;
+          c *= mix(0.6, 1.0, smoothstep(1.05, 0.28, length(q)));
+          gl_FragColor = vec4(c, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+          gl_FragColor.rgb += (h12(gl_FragCoord.xy + fract(uTime * 7.31) * 517.0) - 0.5) * 0.026;
+        }`, true);
+      function pass(mat, target) { quad.material = mat; renderer.setRenderTarget(target); renderer.render(qs, cam); }
+      return {
+        setSize(w, h, pr) {
+          const W2 = Math.max(2, Math.round(w * pr)), H2 = Math.max(2, Math.round(h * pr));
+          sceneRT.setSize(W2, H2);
+          brightRT.setSize(Math.max(2, W2 >> 1), Math.max(2, H2 >> 1));
+          levels.forEach((L) => {
+            L.w = Math.max(2, Math.round(W2 / L.d)); L.h = Math.max(2, Math.round(H2 / L.d));
+            L.a.setSize(L.w, L.h); L.b.setSize(L.w, L.h);
+          });
+          compU.uRes.value.set(W2, H2);
+        },
+        render() {
+          renderer.setRenderTarget(sceneRT);
+          renderer.render(scene, camera);
+          brightMat.uniforms.tSrc.value = sceneRT.texture;
+          pass(brightMat, brightRT);
+          let src = brightRT;
+          for (const L of levels) {
+            blurMat.uniforms.tSrc.value = src.texture; blurMat.uniforms.uDir.value.set(1 / L.w, 0); pass(blurMat, L.b);
+            blurMat.uniforms.tSrc.value = L.b.texture; blurMat.uniforms.uDir.value.set(0, 1 / L.h); pass(blurMat, L.a);
+            src = L.a;
+          }
+          pass(compMat, null);
+        },
+      };
+    })();
 
     /* ---------- 贴图 ---------- */
     function canvasTex(c, srgb = true) {
@@ -1048,6 +1292,23 @@
       h = boxBlur(h, RN, 2);
       return h;
     }
+    /* 高度图也上传成纹理：R 为浮雕高度，G 为大范围模糊（算凹槽阴影），着色器里逐像素求法线 */
+    const gl2 = renderer.capabilities.isWebGL2;
+    const hmData = gl2 ? new Uint16Array(RN * RN * 2) : new Uint8Array(RN * RN * 4);
+    const hmTex = gl2
+      ? new THREE.DataTexture(hmData, RN, RN, THREE.RGFormat, THREE.HalfFloatType)
+      : new THREE.DataTexture(hmData, RN, RN, THREE.RGBAFormat, THREE.UnsignedByteType);
+    hmTex.minFilter = hmTex.magFilter = THREE.LinearFilter;
+    hmTex.generateMipmaps = false;
+    function uploadHeight() {
+      const wide = boxBlur(boxBlur(RH, RN, 7), RN, 7);
+      const toH = THREE.DataUtils.toHalfFloat;
+      for (let i = 0; i < RN * RN; i++) {
+        if (gl2) { hmData[i * 2] = toH(RH[i]); hmData[i * 2 + 1] = toH(wide[i]); }
+        else { hmData[i * 4] = RH[i] * 255; hmData[i * 4 + 1] = wide[i] * 255; hmData[i * 4 + 3] = 255; }
+      }
+      hmTex.needsUpdate = true;
+    }
     function relief(x, z) {
       const fx = (x * 0.5 + 0.5) * RN, fy = (z * 0.5 + 0.5) * RN;
       const x0 = Math.floor(fx), y0 = Math.floor(fy);
@@ -1264,11 +1525,12 @@
       uTime, uCam: { value: camPos }, uMoonPos: { value: moonPos }, uMoonK: moonK,
       uDeep: { value: color('#050912') }, uHor: { value: color('#1B2644') }, uSkyTop: { value: color('#0A1024') },
       uEmber: { value: new THREE.Vector3() },
+      uLan: { value: Array.from({ length: 6 }, () => new THREE.Vector4()) }, uGlit: { value: 1 },
     };
     const water = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.ShaderMaterial({
       uniforms: waterU,
       vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
-      fragmentShader: `uniform float uTime, uMoonK; uniform vec3 uCam, uMoonPos, uDeep, uHor, uSkyTop, uEmber; varying vec3 vW;
+      fragmentShader: `uniform float uTime, uMoonK; uniform vec3 uCam, uMoonPos, uDeep, uHor, uSkyTop, uEmber; uniform vec4 uLan[6]; uniform float uGlit; varying vec3 vW;
         void W(inout vec2 g, vec2 p, vec2 d, float f, float a, float s, float t){ d = normalize(d); g += d * a * f * cos(dot(d, p) * f + t * s); }
         void main(){
           vec2 p = vW.xz; float t = uTime;
@@ -1288,7 +1550,11 @@
           vec3 c = mix(uDeep, mix(uHor, uSkyTop, smoothstep(0.0, 0.5, R.y)), fres);
           vec3 L = normalize(uMoonPos - vW);
           float rl = max(dot(R, L), 0.0);
-          c += vec3(1.0, 0.95, 0.86) * (pow(rl, 900.0) * 16.0 + pow(rl, 80.0) * 0.28) * uMoonK;
+          c += vec3(1.0, 0.95, 0.86) * min(pow(rl, 900.0) * 8.0 + pow(rl, 80.0) * 0.16, 3.0) * uMoonK * uGlit;
+          for (int i = 0; i < 6; i++) {
+            float ll = max(dot(R, normalize(uLan[i].xyz - vW)), 0.0);
+            c += vec3(1.0, 0.55, 0.2) * (pow(ll, 320.0) * 4.0 + pow(ll, 36.0) * 0.07) * uLan[i].w;
+          }
           c += uEmber * smoothstep(5.0, 2.0, length(p)) * 0.5;
           c = mix(c, uHor, smoothstep(24.0, 150.0, dist));
           gl_FragColor = vec4(c, 1.0);
@@ -1338,7 +1604,7 @@
     scene.add(pedestal);
 
     /* ---------- 灯光 ---------- */
-    scene.add(new THREE.HemisphereLight(0x5b6d9e, 0x0b0e18, 1.5));
+    scene.add(new THREE.HemisphereLight(0x5b6d9e, 0x0b0e18, 0.95));
     const key = new THREE.DirectionalLight(0xffe2b8, 3.1);
     key.position.set(3.5, 5, 4.5);
     scene.add(key);
@@ -1354,9 +1620,37 @@
     ovenB.position.set(-1.6, 0.35, -1.2);
     scene.add(ovenA, ovenB);
 
+    /* 环境反射：夜空、背后的月亮、右前方一盏暖灯，给蛋黄的油光和蛋液的釉面一点倒影 */
+    (function makeEnvironment() {
+      const env = new THREE.Scene();
+      env.add(new THREE.Mesh(new THREE.SphereGeometry(20, 32, 16), new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `varying vec3 vD;
+          void main(){
+            float h = vD.y;
+            vec3 c = mix(vec3(0.015, 0.02, 0.04), vec3(0.07, 0.09, 0.17), smoothstep(-0.25, 0.08, h));
+            c = mix(c, vec3(0.012, 0.016, 0.035), smoothstep(0.1, 0.9, h));
+            gl_FragColor = vec4(c, 1.0);
+          }`,
+      })));
+      const disc = (rgb, k, x, y, z, r) => {
+        const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(...rgb).multiplyScalar(k), side: THREE.DoubleSide }));
+        m.position.set(x, y, z);
+        m.lookAt(0, 0, 0);
+        env.add(m);
+      };
+      disc([0.95, 0.97, 1.05], 7, -3, 4, -13, 1.4);
+      disc([1.0, 0.78, 0.52], 2.4, 8, 9, 10, 3.6);
+      disc([0.5, 0.62, 0.95], 0.7, -12, 3, 8, 4.5);
+      const pm = new THREE.PMREMGenerator(renderer);
+      scene.environment = pm.fromScene(env, 0.02).texture;
+      pm.dispose();
+    })();
+
     /* ---------- 月亮 → 蛋黄 ---------- */
     const yolkU = { uMoon: { value: 1 }, uYolk: { value: color('#F0A12C') }, uYolkE: { value: color('#4A2200') }, uMoonGlow: { value: 1.75 } };
-    const yolkMat = new THREE.MeshStandardMaterial({ map: moonTex, roughness: 0.9 });
+    const yolkMat = new THREE.MeshPhysicalMaterial({ map: moonTex, roughness: 0.9, clearcoat: 1, clearcoatRoughness: 0.14 });
     yolkMat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, yolkU);
       sh.fragmentShader = sh.fragmentShader
@@ -1407,7 +1701,7 @@
     const rimCol = color('#FFC46A').multiplyScalar(1.6);
 
     const pasteReveal = { value: 0 };
-    const pasteMat = new THREE.MeshStandardMaterial({ roughness: 0.78, side: THREE.DoubleSide });
+    const pasteMat = new THREE.MeshStandardMaterial({ roughness: 0.66, side: THREE.DoubleSide, envMapIntensity: 0.6 });
     pasteMat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, pasteU, { uReveal: pasteReveal, uRim: { value: rimCol } });
       sh.vertexShader = sh.vertexShader
@@ -1431,32 +1725,65 @@
     const wrapPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 10);
     const crustU = {
       uMorph: { value: 0 }, uBake: { value: 0 }, uWrapY: { value: 10 },
-      uRaw: { value: color('#EDD5A6') }, uTopB: { value: color('#BC6C2C') }, uHighB: { value: color('#8A4414') }, uSideB: { value: color('#DDA35C') },
+      uRaw: { value: color('#EDD5A6') }, uTopB: { value: color('#B96A2A') }, uHighB: { value: color('#7E3D12') }, uSideB: { value: color('#D9A15A') },
       uRim: { value: rimCol },
+      uHM: { value: hmTex }, uTexel: { value: 1 / RN }, uRelA: { value: REL_A }, uDome: { value: DOME },
     };
-    const crustMat = new THREE.MeshStandardMaterial({ roughness: 0.8, side: THREE.DoubleSide, clippingPlanes: [wrapPlane] });
+    const crustMat = new THREE.MeshPhysicalMaterial({
+      roughness: 0.8, side: THREE.DoubleSide, clippingPlanes: [wrapPlane],
+      clearcoat: 1, clearcoatRoughness: 0.3, envMapIntensity: 0.85,
+    });
     crustMat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, crustU);
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', `#include <common>
           attribute vec3 aCake; attribute vec3 aCakeN; attribute float aRel; attribute float aTop;
-          uniform float uMorph; varying float vRel; varying float vTop; varying float vWY; varying vec3 vOP;`)
-        .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = normalize(mix(normal, aCakeN, uMorph));')
+          uniform float uMorph; varying float vRel; varying float vTop; varying float vWY; varying vec3 vOP; varying vec3 vObjN;`)
+        .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = normalize(mix(normal, aCakeN, uMorph)); vObjN = objectNormal;')
         .replace('#include <begin_vertex>', 'vec3 transformed = mix(position, aCake, uMorph); vRel = aRel * uMorph; vTop = aTop; vOP = transformed;')
         .replace('#include <project_vertex>', '#include <project_vertex>\nvWY = (modelMatrix * vec4(transformed, 1.0)).y;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', `#include <common>
-          uniform float uBake, uWrapY; uniform vec3 uRaw, uTopB, uHighB, uSideB, uRim;
-          varying float vRel; varying float vTop; varying float vWY; varying vec3 vOP;
+          uniform mat3 normalMatrix;
+          uniform float uMorph, uBake, uWrapY, uTexel, uRelA, uDome; uniform sampler2D uHM;
+          uniform vec3 uRaw, uTopB, uHighB, uSideB, uRim;
+          varying float vRel; varying float vTop; varying float vWY; varying vec3 vOP; varying vec3 vObjN;
           ${NOISE}`)
         .replace('#include <color_fragment>', `#include <color_fragment>
+          float topW = uMorph * uMorph * (1.0 - smoothstep(0.8, 0.86, length(vOP.xz))) * smoothstep(0.6, 0.7, vOP.y);
+          vec2 huv = vOP.xz * 0.5 + 0.5;
+          vec2 hc = texture2D(uHM, huv).rg;
+          float hT = hc.r * topW;
+          float cav = clamp((hc.g - hc.r) * 3.2, 0.0, 1.0) * topW;
+          vec2 gradH = vec2(
+            texture2D(uHM, huv + vec2(uTexel, 0.0)).r - texture2D(uHM, huv - vec2(uTexel, 0.0)).r,
+            texture2D(uHM, huv + vec2(0.0, uTexel)).r - texture2D(uHM, huv - vec2(0.0, uTexel)).r
+          ) * (uRelA * 0.25 / uTexel) - 2.0 * uDome * vOP.xz / 0.7744;
           float nn = vnoise3(vOP * 38.0) * 0.5 + vnoise3(vOP * 9.0) * 0.5;
+          float flute = pow(abs(sin(8.0 * atan(vOP.z, vOP.x))), 0.6);
+          float raised = smoothstep(0.18, 0.85, max(hT, vRel));
           vec3 raw = uRaw * (0.93 + 0.12 * nn);
-          vec3 baked = mix(uSideB, uTopB, vTop);
-          baked = mix(baked, uHighB, smoothstep(0.2, 0.95, vRel) * vTop);
-          baked *= 0.88 + 0.24 * nn;
-          diffuseColor.rgb = mix(raw, baked, uBake);`)
-        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(0.82, 0.4, uBake) - 0.14 * vRel * uBake;')
+          vec3 baked = uSideB * mix(1.1, 0.84, flute * uMorph);
+          baked = mix(baked, uTopB, vTop);
+          baked = mix(baked, uHighB * 1.12, vTop * (1.0 - vTop) * 1.6);
+          baked = mix(baked, uHighB, raised * vTop);
+          baked = mix(baked, uHighB * 0.78, (1.0 - smoothstep(0.0, 0.07, vOP.y)) * 0.55 * uMorph);
+          baked *= 0.86 + 0.26 * nn;
+          diffuseColor.rgb = mix(raw, baked, uBake) * (1.0 - 0.42 * cav);`)
+        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(0.82, 0.5, uBake) - 0.16 * raised * uBake;')
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          {
+            vec3 nO = normalize(vObjN);
+            nO = normalize(mix(nO, normalize(vec3(-gradH.x, 1.0, -gradH.y)), topW));
+            float mf = 64.0, me = 0.0035;
+            float m0 = vnoise3(vOP * mf);
+            vec3 gN = (vec3(vnoise3((vOP + vec3(me, 0.0, 0.0)) * mf), vnoise3((vOP + vec3(0.0, me, 0.0)) * mf), vnoise3((vOP + vec3(0.0, 0.0, me)) * mf)) - m0) / me;
+            gN -= nO * dot(gN, nO);
+            nO = normalize(nO - gN * mix(0.0015, 0.001, uBake));
+            normal = normalize(normalMatrix * nO) * faceDirection;
+          }`)
+        .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+          material.clearcoat = uBake * mix(0.18, 0.6, vTop) * (0.55 + 0.45 * raised);`)
         .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           totalEmissiveRadiance += uRim * (1.0 - smoothstep(0.0, 0.035, uWrapY - vWY)) * step(uWrapY, 1.7);`);
     };
@@ -1465,7 +1792,7 @@
       uYolk: { value: color('#F3A42B') }, uYolkEdge: { value: color('#D0701A') },
       uCrustIn: { value: color('#E9C27C') }, uSkin: { value: color('#9A5620') }, uBakeS: crustU.uBake,
     };
-    const secMat = new THREE.MeshStandardMaterial({ roughness: 0.85, side: THREE.DoubleSide });
+    const secMat = new THREE.MeshStandardMaterial({ roughness: 0.85, side: THREE.DoubleSide, envMapIntensity: 0.5 });
     secMat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, pasteU, secU);
       sh.vertexShader = sh.vertexShader
@@ -1511,11 +1838,40 @@
       wedges.push({ g, crust, faceA, faceB, t0, t1, tc: (t0 + t1) / 2 });
     }
 
+    /* 切饼前的一道刀光 */
+    const blades = [0, 1].map((i) => {
+      const mat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uOp: { value: 0 }, uP: { value: 0 } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `uniform float uOp, uP; varying vec2 vUv;
+          void main(){
+            float x = vUv.x;
+            if (x > uP) discard;
+            float y = abs(vUv.y - 0.5) * 2.0;
+            float core = exp(-y * y * 90.0);
+            float halo = exp(-y * y * 8.0) * 0.18;
+            float ends = smoothstep(0.0, 0.1, x) * smoothstep(1.0, 0.9, x);
+            float tip = exp(-pow((uP - x) * 28.0, 2.0)) * step(uP, 0.999);
+            vec3 c = vec3(1.0, 0.84, 0.56) * (core * 1.5 + halo + tip * (core * 3.0 + halo * 4.0));
+            gl_FragColor = vec4(c * uOp * ends, 1.0);
+          }`,
+      });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.08), mat);
+      m.rotation.x = -Math.PI / 2;
+      m.position.y = 0.8;
+      const pivot = new THREE.Group();
+      pivot.rotation.y = i ? -Math.PI / 2 : 0;
+      pivot.add(m);
+      pivot.visible = false;
+      cake.add(pivot);
+      return { pivot, mat };
+    });
+
     /* ---------- 木模 ---------- */
     const woodTex = makeWoodTexture();
     woodTex.repeat.set(0.34, 0.34);
     woodTex.offset.set(0.5, 0.5);
-    const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.62 });
+    const woodMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.62, envMapIntensity: 0.5 });
     function roundedRect(w, h, r) {
       const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
       s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -1560,6 +1916,7 @@
     /* 纹样先用系统字体生成，马善政楷体加载后再重新压一遍模 */
     function rebuildRelief(font) {
       RH = makeRelief(font);
+      uploadHeight();
       wedges.forEach((w) => {
         fillCake(w.crust.geometry, w.t0, w.t1);
         w.faceA.geometry.dispose(); w.faceB.geometry.dispose();
@@ -1648,7 +2005,7 @@
       g.scale.setScalar(s);
       g.visible = false;
       scene.add(g);
-      return { g, mat, halo, x: -6 + rnd() * 20, z: -4.5 - rnd() * 26, y0: rnd() * 15, v: 0.16 + rnd() * 0.22, ph: rnd() * 6.283 };
+      return { g, mat, halo, x: -3 + rnd() * 17, z: -4.5 - rnd() * 26, y0: rnd() * 15, v: 0.16 + rnd() * 0.22, ph: rnd() * 6.283 };
     });
 
     /* ---------- 3D 标注 ---------- */
@@ -1672,9 +2029,10 @@
     addTag('饼皮 · 由下往上合拢', cake, -0.5, 1.32, 0.34, 2.72, 3.12, true);
     addTag('十六瓣花边', cake, Math.cos(0.3) * 1.0, 0.56, Math.sin(0.3) * 1.0, 3.95, 4.5);
     addTag('⌀ 70 mm · 高 25 mm · 约 125 g', cake, -0.92, 0.5, 0.36, 3.98, 4.5, true);
-    addTag('咸蛋黄', wedges[0].g, 0, 0.37, 0.12, 5.72, 6.25, true);
-    const secPaste = addTag(FILL.lotus.label, wedges[0].g, 0, 0.26, 0.62, 5.72, 6.25);
-    addTag('饼皮', wedges[0].g, 0, 0.7, 0.92, 5.72, 6.25);
+    /* 切面标注放在“好”字那块正对镜头的切面上 */
+    addTag('咸蛋黄', wedges[3].g, 0.12, 0.37, 0, 5.72, 6.25, true);
+    const secPaste = addTag(FILL.lotus.label, wedges[3].g, 0.6, 0.26, 0, 5.72, 6.25);
+    addTag('饼皮 · 约 2.5 mm', wedges[3].g, 0.9, 0.69, 0, 5.72, 6.25);
     fillListeners.push((f) => { pasteTag.span.textContent = `${f.label} · 皮馅比 2:8`; secPaste.span.textContent = f.label; });
 
     const hud = $('#hud'), hudTemp = $('#hudTemp'), hudTime = $('#hudTime'), hudBar = $('#hudBar'), hudState = $('#hudState');
@@ -1715,6 +2073,12 @@
       }
       camera.updateProjectionMatrix();
       starU.uPR.value = sparkU.uPR.value = renderer.getPixelRatio();
+      if (post) post.setSize(W, Hh, renderer.getPixelRatio());
+    }
+    let drawn = false;
+    function render() {
+      if (post) post.render(); else renderer.render(scene, camera);
+      if (!drawn) { drawn = true; canvas.classList.add('ready'); }
     }
 
     let dragging = false, lastX = 0, userYaw = 0, yawVel = 0, autoYaw = 0, idle = 10;
@@ -1759,17 +2123,20 @@
       const kMoldOut = win(s, 3.74, 4.05);
       const kBake = win(s, 4.2, 4.9);
       const kHeat = win(s, 4.1, 4.3) * (1 - win(s, 4.85, 5.1));
-      const kCut = win(s, 5.15, 5.8);
+      const kCut = win(s, 5.3, 5.85);
+      const intro = reduceMotion ? 1 : sstep(0.3, 3.6, time);
       const kJoin = win(s, 6.15, 6.6);
       const kRise = win(s, 6.05, 6.9);
       const kFinal = win(s, 6.0, 6.8);
 
       /* 月亮飞下来，变成蛋黄 */
       yolk.visible = kWrap < 0.999;
-      yolk.position.set(0, lerp(4.4, BALL_Y, kFly) + Math.sin(Math.PI * kFly) * 1.2, lerp(-30, 0, kFly));
+      yolk.position.set(0, lerp(4.4, BALL_Y, kFly) + Math.sin(Math.PI * kFly) * 1.2 - (1 - intro) * 3.2 * (1 - kFly), lerp(-30, 0, kFly));
       yolk.scale.setScalar(Math.exp(lerp(Math.log(4.2), Math.log(0.27), kFly)));
       yolk.rotation.y = kFly * (1.2 + time * 0.15);
       yolkU.uMoon.value = 1 - kMoonMat;
+      yolkMat.clearcoat = Math.max(0.001, kMoonMat * 0.75);
+      yolkMat.envMapIntensity = kMoonMat;
       /* 光晕放在月亮正后方，只从边缘透出来 */
       const ys = yolk.scale.x;
       moonGlow.position.set(yolk.position.x, yolk.position.y, yolk.position.z - ys * 1.1);
@@ -1786,6 +2153,7 @@
       const heroMoonK = 1 - win(s, 0.15, 0.6);
       if (kRise > 0.001) { moonPos.copy(skyMoon.position); moonK.value = kRise; } else { moonPos.copy(yolk.position); moonK.value = heroMoonK; }
       moonDir.copy(moonPos).normalize();
+      waterU.uGlit.value = lerp(1, 0.45, kRise);
 
       /* 裹馅：溶解式显形 */
       paste.visible = kPaste > 0.001 && kWrap < 0.999;
@@ -1805,12 +2173,21 @@
       mold.rotation.z = -kMoldOut * 0.25;
 
       const heat = kHeat * (0.85 + 0.15 * Math.sin(time * 11.0) * Math.sin(time * 4.3));
-      ovenA.intensity = heat * 9;
-      ovenB.intensity = heat * 7;
+      ovenA.intensity = heat * 6;
+      ovenB.intensity = heat * 4.5;
       pedU.uHeat.value = kHeat;
       sparks.visible = kHeat > 0.01;
       sparkU.uHeat.value = kHeat;
       waterU.uEmber.value.set(0.9, 0.3, 0.08).multiplyScalar(kHeat * 0.25);
+
+      /* 刀光：先横一刀，再竖一刀 */
+      const kKnife = win(s, 5.0, 5.06) * (1 - win(s, 5.3, 5.42));
+      blades.forEach((b, j) => {
+        const pr = clamp((s - 5.0 - j * 0.1) / 0.14);
+        b.pivot.visible = kKnife > 0.001 && pr > 0;
+        b.mat.uniforms.uOp.value = kKnife;
+        b.mat.uniforms.uP.value = pr;
+      });
 
       /* 切开、再合拢 */
       const d = 0.34 * kCut * (1 - kJoin) + 0.014 * kCut * kJoin;
@@ -1864,6 +2241,10 @@
         l.mat.uniforms.uOp.value = f;
         l.halo.material.opacity = f * 0.55;
       });
+      waterU.uLan.value.forEach((v, j) => {
+        const l = lanterns[j];
+        v.set(l.g.position.x, l.g.position.y, l.g.position.z, l.g.visible ? l.mat.uniforms.uOp.value : 0);
+      });
 
       /* 镜头 */
       const i = Math.min(KEYS.length - 2, Math.max(0, Math.floor(s)));
@@ -1910,7 +2291,7 @@
       }
     }
 
-    return { renderer, scene, camera, layout, update };
+    return { layout, update, render };
   })();
 
   if (!GL) document.documentElement.classList.add('no-gl');
@@ -1937,7 +2318,7 @@
     updateNav(target);
     if (GL) {
       GL.update(s, dt, time);
-      GL.renderer.render(GL.scene, GL.camera);
+      GL.render();
     }
     requestAnimationFrame(frame);
   }
