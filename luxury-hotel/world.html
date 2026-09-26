@@ -1181,7 +1181,7 @@ function buildSite(){
   T.road.repeat.set(1,220/28);
   planeXZ(g,14,220,M.road,0,0.022,154);
   { const wet=makeReflector(60,272,1,0.85); wet.rotation.x=-Math.PI/2; wet.position.set(0,0.066,134); g.add(wet); D.wet=wet; }
-  const asphalt=std({color:'#1c1c1f', roughness:0.78, envMapIntensity:0.3});
+  const asphalt=std({color:'#3a3b40', roughness:0.7, envMapIntensity:0.35});     // aged asphalt reflects ~10%, not 1%
   add(g,new THREE.RingGeometry(9,16,72),asphalt,0,0.02,30,-Math.PI/2,0,0);
   const curb=std({color:'#8f8a82', roughness:0.8});
   add(g,new THREE.RingGeometry(16,16.25,72),curb,0,0.07,30,-Math.PI/2,0,0);
