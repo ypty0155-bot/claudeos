@@ -813,7 +813,7 @@ T.rugIvory=toTex(rugTex('#d9ccb3','#2a3558','#a8864e',72));
 T.silkWarm=toTex(silk('#d4c3a4',81));
 T.silkIvory=toTex(silk('#e6dccb',82));
 T.fabric=toTex(noiseTex(256,'#bdbdbd',30,83));
-T.grass=toTex(noiseTex(256,'#28361f',40,84,300));
+T.grass=toTex(grassTex());
 T.hedge=toTex(noiseTex(256,'#24381f',70,85,900));
 T.pavers=toTex(pavers());
 T.road=toTex(roadTex());
@@ -913,7 +913,10 @@ M.leaf=std({map:T.palm, alphaTest:0.45, side:THREE.DoubleSide, roughness:0.7, co
 M.trunk=std({color:'#6d5a45', roughness:0.95, map:T.fabric});
 M.foliage=std({color:'#23391f', roughness:0.9, map:T.hedge});
 M.hedge=uvs(std({map:T.hedge, roughness:0.95, color:'#9fbf8a'}),1.6);
-M.grass=uvs(std({map:T.grass, roughness:1, envMapIntensity:0.2}),4);
+M.grass=uvs(std({map:T.grass, roughness:0.95, envMapIntensity:0.2}),3);
+M.grass.onBeforeCompile=sh=>{ // large-scale colour drift so the lawn never reads as one repeated tile
+  sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vWPg;').replace('#include <worldpos_vertex>','#include <worldpos_vertex>\n  vWPg=(modelMatrix*vec4(transformed,1.0)).xyz;');
+  sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nvarying vec3 vWPg;').replace('#include <map_fragment>','#include <map_fragment>\n  { vec2 p=vWPg.xz; float n=0.5+0.22*sin(p.x*0.071+sin(p.y*0.053)*2.0)+0.18*sin(p.y*0.089+sin(p.x*0.041)*2.3)+0.1*sin((p.x+p.y)*0.23); diffuseColor.rgb*=mix(vec3(1.16,1.06,0.64),vec3(0.84,1.04,0.9),clamp(n,0.0,1.0)); }'); };
 M.pavers=uvs(std({map:T.pavers, roughness:0.8, envMapIntensity:0.3}),4.8);
 M.soil=std({color:'#231a12', roughness:1});
 function glowMat(r,g,b){ return basic({color:lin(r,g,b)}); }
@@ -957,7 +960,7 @@ function nmProc(S,fn,strength){ const hg=new Float32Array(S*S); for(let j=0;j<S;
   M.oak.normalMap=nmFrom(T.oak.image,0.7,512);
   const nTrav=nmFrom(T.travertine.image,1.6,512); for(const m of [M.stone,M.stoneIn]){ m.normalMap=nTrav; m.normalScale.set(1,1); }
   M.pavers.normalMap=nmFrom(T.pavers.image,2.4,512); M.pavers.color.multiplyScalar(0.72); M.pavers.roughness=0.42; M.pavers.envMapIntensity=0.6;
-  M.grass.normalMap=nmFrom(T.grass.image,2,256);
+  M.grass.normalMap=nmFrom(T.grass.image,1.6,512);
   const nSilk=nmFrom(T.silkWarm.image,0.6,512); for(const m of [M.silkWarm,M.silkIvory]){ m.normalMap=nSilk; m.normalScale.set(0.5,0.5); }
   M.headboard.normalMap=nmFrom(T.headboard.image,5,512); M.headboard.normalScale.set(1.4,1.4);
   for(const m of [M.leather,M.leatherBlack]){ m.normalMap=T.nLeather; m.normalScale.set(0.5,0.5); }
@@ -1968,10 +1971,34 @@ function concreteTex(){ const S=512; const [c,x]=mkCanvas(S,S); const r=mulberry
 function slateTex(){ const S=256; const [c,x]=mkCanvas(S,S); const r=mulberry32(321); x.fillStyle='#2c3138'; x.fillRect(0,0,S,S);
   for(let j=0;j<16;j++) for(let i=-1;i<9;i++){ const k=0.8+r()*0.4; x.fillStyle=`rgb(${48*k|0},${54*k|0},${62*k|0})`; x.beginPath(); x.roundRect? x.roundRect(i*32+(j%2)*16+1,j*16+1,30,15,[0,0,6,6]) : x.rect(i*32+(j%2)*16+1,j*16+1,30,15); x.fill(); }
   return c; }
-function asphaltTex(){ const S=512; const [c,x]=mkCanvas(S,S); const r=mulberry32(331); x.fillStyle='#1e1e21'; x.fillRect(0,0,S,S); grain(x,S,S,44,332);
-  for(let i=0;i<1400;i++){ x.fillStyle=`rgba(${r()<0.5?'200,200,200':'0,0,0'},${0.05+r()*0.12})`; x.fillRect(r()*S,r()*S,1+r()*2,1+r()*2); }
-  for(let i=0;i<6;i++){ x.strokeStyle='rgba(8,8,8,.5)'; x.lineWidth=1+r()*2; x.beginPath(); let px=r()*S, py=r()*S; x.moveTo(px,py); for(let k=0;k<20;k++){ px+=(r()-0.5)*40; py+=(r()-0.5)*40; x.lineTo(px,py);} x.stroke(); }
+function grassTex(){ const S=1024; const [c,x]=mkCanvas(S,S); const r=mulberry32(84);
+  x.fillStyle='#34482a'; x.fillRect(0,0,S,S);
+  for(let i=0;i<1400;i++){ x.fillStyle=`rgba(${70+r()*40|0},${58+r()*30|0},${34+r()*18|0},${0.12+r()*0.2})`; const s=2+r()*5; x.fillRect(r()*S,r()*S,s,s*0.7); }   // soil and thatch showing through
+  x.lineCap='round';
+  for(let i=0;i<34000;i++){ const px=r()*S, py=r()*S, L=5+r()*13, a=r()*TAU, gch=80+r()*110|0, dry=r()<0.08;
+    x.strokeStyle=dry?`rgba(${150+r()*40|0},${135+r()*30|0},${80+r()*20|0},${0.4+r()*0.4})`:`rgba(${(gch*0.42)|0},${gch},${(gch*0.3)|0},${0.35+r()*0.5})`; x.lineWidth=0.8+r()*1.3;
+    const ex=Math.cos(a)*L, ey=Math.sin(a)*L;
+    for(const [ox,oy] of OFF9){ const qx=px+ox*S, qy=py+oy*S; if(qx+L<0||qx-L>S||qy+L<0||qy-L>S) continue; x.beginPath(); x.moveTo(qx,qy); x.quadraticCurveTo(qx+ex*0.5+ey*0.15,qy+ey*0.5-ex*0.15,qx+ex,qy+ey); x.stroke(); } }
+  for(let i=0;i<260;i++){ const px=r()*S, py=r()*S; x.fillStyle=r()<0.5?'rgba(250,245,220,0.55)':'rgba(245,215,90,0.5)'; x.beginPath(); x.arc(px,py,1.2+r()*1.3,0,TAU); x.fill(); }  // tiny clover flowers
   return c; }
+function asphaltTex(){ const S=1024; const [c,x]=mkCanvas(S,S); const r=mulberry32(331); x.fillStyle='#3a3b40'; x.fillRect(0,0,S,S); grain(x,S,S,54,332);
+  for(let i=0;i<16000;i++){ const k=r(), s=0.8+r()*2.4; x.fillStyle=k<0.55?`rgba(${150+r()*90|0},${150+r()*85|0},${145+r()*80|0},${0.08+r()*0.26})`:`rgba(0,0,0,${0.1+r()*0.35})`; x.fillRect(r()*S,r()*S,s,s); }   // aggregate
+  for(let i=0;i<4;i++){ const w=90+r()*260, h=70+r()*180, px=r()*(S-w), py=r()*(S-h); x.fillStyle=`rgba(12,12,14,${0.2+r()*0.12})`; x.fillRect(px,py,w,h); x.strokeStyle='rgba(0,0,0,.4)'; x.lineWidth=2.5; x.strokeRect(px,py,w,h); }  // repair patches
+  x.lineJoin='round'; x.lineCap='round';
+  for(let i=0;i<11;i++){ x.strokeStyle=`rgba(6,6,7,${0.5+r()*0.3})`; x.lineWidth=2+r()*3.5; x.beginPath(); let px=r()*S, py=r()*S, a=r()*TAU; x.moveTo(px,py);   // tar-sealed cracks
+    for(let k=0;k<26;k++){ a+=(r()-0.5)*0.9; px+=Math.cos(a)*15; py+=Math.sin(a)*15; x.lineTo(px,py); } x.stroke(); }
+  for(let i=0;i<16;i++){ const px=r()*S, py=r()*S, rad=12+r()*40; const gr=x.createRadialGradient(px,py,0,px,py,rad); gr.addColorStop(0,`rgba(0,0,0,${0.12+r()*0.18})`); gr.addColorStop(1,'rgba(0,0,0,0)'); x.fillStyle=gr; x.beginPath(); x.ellipse(px,py,rad,rad*(0.5+r()*0.5),r()*3,0,TAU); x.fill(); }  // oil and damp stains
+  return c; }
+function paintWearTex(){ const S=256; const [c,x]=mkCanvas(S,S); const r=mulberry32(517); x.fillStyle='#ffffff'; x.fillRect(0,0,S,S);
+  for(let i=0;i<2200;i++){ x.fillStyle=`rgba(${r()<0.5?'40,40,44':'120,120,120'},${0.15+r()*0.55})`; const s=1+r()*4; x.fillRect(r()*S,r()*S,s,s*(0.5+r())); }
+  const t=toTex(c); return t; }
+function ironTex(kind){ const S=256; const [c,x]=mkCanvas(S,S); const r=mulberry32(kind==='drain'?71:73); x.fillStyle='#2a2826'; x.fillRect(0,0,S,S); grain(x,S,S,60,kind==='drain'?72:74);
+  if(kind==='drain'){ x.fillStyle='#0a0a0a'; for(let i=0;i<9;i++) x.fillRect(18+i*26,30,14,196); x.strokeStyle='#3a3530'; x.lineWidth=10; x.strokeRect(5,5,S-10,S-10); }
+  else { x.strokeStyle='#45403a'; for(let k=0;k<4;k++){ x.lineWidth=5; x.beginPath(); x.arc(128,128,40+k*26,0,TAU); x.stroke(); }
+    x.save(); x.beginPath(); x.arc(128,128,118,0,TAU); x.clip(); x.strokeStyle='#3b3631'; x.lineWidth=3; for(let k=-10;k<=10;k++){ x.beginPath(); x.moveTo(k*14+128-140,0); x.lineTo(k*14+128+140,S); x.stroke(); x.beginPath(); x.moveTo(k*14+128+140,0); x.lineTo(k*14+128-140,S); x.stroke(); } x.restore();
+    x.fillStyle='#55504a'; x.font=`600 22px ${UIF}`; x.textAlign='center'; x.fillText('AURELLE',128,120); x.font=`600 16px ${UIF}`; x.fillText('SEWER · 1928',128,146); }
+  for(let i=0;i<40;i++){ x.fillStyle=`rgba(${110+r()*50|0},${55+r()*25|0},${25},${0.08+r()*0.18})`; x.beginPath(); x.arc(r()*S,r()*S,4+r()*18,0,TAU); x.fill(); }  // rust
+  return toTex(c); }
 function checkerTex(){ const S=512; const [c,x]=mkCanvas(S,S); const w=marble(256,351,CALACATTA), b=marble(256,352,NERO);
   for(let j=0;j<4;j++) for(let i=0;i<4;i++) x.drawImage((i+j)%2?b:w,0,0,256,256,i*128,j*128,128,128);
   x.strokeStyle='rgba(60,55,50,.6)'; x.lineWidth=1.5; for(let k=0;k<=4;k++){ x.beginPath(); x.moveTo(k*128,0); x.lineTo(k*128,S); x.moveTo(0,k*128); x.lineTo(S,k*128); x.stroke(); } return c; }
@@ -2002,7 +2029,7 @@ M.darkMetal=std({color:'#1d1c1b', metalness:0.7, roughness:0.4, envMapIntensity:
 M.spandrel=std({color:'#0b0f14', metalness:0.8, roughness:0.12, envMapIntensity:1.2});
 M.roof=std({color:'#2b2b2e', roughness:0.95});
 M.band=basic({color:lin(3.2,2.3,1.2)});
-M.paint=uvs(std({color:'#d8d6cf', roughness:0.6}),1);
+M.paint=uvs(std({color:'#dedcd4', map:paintWearTex(), roughness:0.6}),1.2);
 M.checker=uvs(std({map:T.checker, roughness:0.12, envMapIntensity:0.9, normalMap:T.nTiles, normalScale:new THREE.Vector2(0.4,0.4)}),1.6);
 M.cafeGreen=uvs(std({color:'#1f3a2e', roughness:0.5, normalMap:T.nPlaster, normalScale:new THREE.Vector2(0.3,0.3)}),2);
 M.awn=T.awn.map(t=>std({map:t, roughness:0.85, side:THREE.DoubleSide, normalMap:T.nWeave, normalScale:new THREE.Vector2(0.4,0.4)}));
@@ -2328,6 +2355,16 @@ function buildStreets(){
   road(-7,264,7,WR); for(const s of [-1,1]) walk(s*9-2,264,s*9+2,WR);
   for(const s of [-1,1]) for(const [a,b] of [[54,72],[88,193],[207,WR]]) addSurface(s*9-2,a,s*9+2,b,0.06);
   // crosswalks at every intersection
+  { const mh=[], dr=[], rr=mulberry32(606), nearX=x=>Math.abs(x)<14||Math.abs(Math.abs(x)-170)<14, nearZ=z=>ROADS_EW.some(e=>Math.abs(z-e.z)<14);
+    for(const R of ROADS_EW){ for(let x=-WR+20;x<WR-20;x+=38+rr()*22){ if(!nearX(x)) mh.push([x,R.z+(rr()<0.5?-1:1)*3.6,rr()*TAU]); }
+      for(const sd of [-1,1]) for(let x=-WR+15;x<WR-15;x+=30+rr()*14){ if(!nearX(x)) dr.push([x,R.z+sd*(R.w/2-0.3),0]); } }
+    for(const R of ROADS_NS){ for(let z=-WR+20;z<WR-20;z+=38+rr()*22){ if(!nearZ(z)) mh.push([R.x+(rr()<0.5?-1:1)*3.6,z,rr()*TAU]); }
+      for(const sd of [-1,1]) for(let z=-WR+15;z<WR-15;z+=30+rr()*14){ if(!nearZ(z)) dr.push([R.x+sd*(R.w/2-0.3),z,Math.PI/2]); } }
+    for(let z=100;z<WR-20;z+=42+rr()*20){ if(!nearZ(z)) mh.push([(rr()<0.5?-1:1)*4.3,z,rr()*TAU]); }
+    const iron=k=>std({map:ironTex(k),metalness:0.55,roughness:0.5,envMapIntensity:0.8,polygonOffset:true,polygonOffsetFactor:-2});
+    const put=(geo,mat,list)=>{ const im=new THREE.InstancedMesh(geo,mat,list.length), m4=new THREE.Matrix4(), q=new THREE.Quaternion(), e=new THREE.Euler(), v=new THREE.Vector3(), one=new THREE.Vector3(1,1,1);
+      list.forEach(([x,z,a],i)=>{ m4.compose(v.set(x,0.031,z),q.setFromEuler(e.set(-Math.PI/2,0,a)),one); im.setMatrixAt(i,m4); }); im.receiveShadow=true; g.add(im); };
+    put(new THREE.CircleGeometry(0.36,28),iron('manhole'),mh); put(new THREE.PlaneGeometry(0.9,0.4),iron('drain'),dr); }
   const zebra=(cx,cz,alongX,len)=>{ for(let k=-3;k<=3;k++){ if(alongX) planeXZ(g,0.5,3.2,M.paint,cx+k*1.0*len/7,0.034,cz); else planeXZ(g,3.2,0.5,M.paint,cx,0.034,cz+k*1.0*len/7); } };
   const XS=[-170,0,170], ZS=ROADS_EW.map(e=>e.z);
   for(const xr of XS) for(const zr of ZS){ if(xr===0&&zr<0) continue; const hx=xr===0?7:7, hz=zr===80?8:7;
@@ -2369,21 +2406,61 @@ function buildStreets(){
   // outer boundary: the city continues, but the walkable district ends here
   for(const [x0,z0,x1,z1] of [[-WR-2,-WR-2,WR+2,-WR],[-WR-2,WR,WR+2,WR+2],[-WR-2,-WR,-WR,WR],[WR,-WR,WR+2,WR]]) addBox(x0,z0,x1,z1,0,10);
 }
+function leafClusterTex(){ const S=256; const [c,x]=mkCanvas(S,S); x.clearRect(0,0,S,S); const r=mulberry32(4242);
+  const cols=['#2b5020','#3a6628','#4a7932','#5c8c3b','#27451c','#6c9844','#44702d'];
+  x.lineCap='round'; x.strokeStyle='#4b3b29';
+  for(let i=0;i<6;i++){ const a=r()*TAU; x.lineWidth=2.4; x.beginPath(); x.moveTo(128,128); x.quadraticCurveTo(128+Math.cos(a+0.4)*50,128+Math.sin(a+0.4)*50,128+Math.cos(a)*100,128+Math.sin(a)*100); x.stroke(); }
+  for(let i=0;i<86;i++){ const a=r()*TAU, d=Math.pow(r(),0.7)*104, cx=128+Math.cos(a)*d, cy=128+Math.sin(a)*d, L=15+r()*13, W=L*(0.38+r()*0.14), ang=a+(r()-0.5)*1.4;
+    x.save(); x.translate(cx,cy); x.rotate(ang); x.fillStyle=cols[(r()*cols.length)|0];
+    x.beginPath(); x.moveTo(-L/2,0); x.bezierCurveTo(-L/4,-W,L/4,-W,L/2,0); x.bezierCurveTo(L/4,W,-L/4,W,-L/2,0); x.fill();
+    x.fillStyle='rgba(255,250,200,0.10)'; x.beginPath(); x.moveTo(-L/2,0); x.bezierCurveTo(-L/4,-W,L/4,-W,L/2,0); x.closePath(); x.fill();     // lit upper half
+    x.strokeStyle='rgba(18,32,10,0.55)'; x.lineWidth=0.9; x.beginPath(); x.moveTo(-L/2,0); x.lineTo(L/2,0); x.stroke();                       // midrib
+    for(let k=-2;k<=2;k++){ if(!k) continue; x.lineWidth=0.5; x.beginPath(); x.moveTo(k*L/7,0); x.lineTo(k*L/7+L/10,Math.sign(k)*W*0.55); x.stroke(); x.beginPath(); x.moveTo(k*L/7,0); x.lineTo(k*L/7+L/10,-Math.sign(k)*W*0.55); x.stroke(); }
+    x.restore(); }
+  const t=toTex(c); t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping; return t; }
+/* street and garden trees: a forked trunk and a canopy of lit, shadow-casting leaf clusters that sway */
 function buildTrees(g,list){
-  const tg=new THREE.CylinderGeometry(0.14,0.22,1,7); tg.translate(0,0.5,0);
-  const ti=new THREE.InstancedMesh(tg,M.trunk,list.length), m4=new THREE.Matrix4(), q=new THREE.Quaternion(), r3=mulberry32(77);
-  const [lc,lx]=mkCanvas(128,128); const rl=mulberry32(12);
-  for(let i=0;i<46;i++){ const a2=rl()*TAU, rr=rl()*44, cx=64+Math.cos(a2)*rr, cy=64+Math.sin(a2)*rr, k=150+rl()*105|0; lx.fillStyle=`rgb(${k},${k},${k})`; lx.beginPath(); lx.ellipse(cx,cy,9+rl()*7,4+rl()*3,rl()*TAU,0,TAU); lx.fill(); }
-  const leafTex=toTex(lc); leafTex.wrapS=leafTex.wrapT=THREE.ClampToEdgeWrapping;
-  const P=[], C=[];
-  list.forEach(([x,z,h],i)=>{ m4.compose(new THREE.Vector3(x,0,z),q,new THREE.Vector3(1,h*0.5,1)); ti.setMatrixAt(i,m4); const k=r3();
-    const rx=h*0.36, ry=h*0.42, cy=h*0.66; const nearLamp=LAMPS.some(([a,b])=>Math.abs(a-x)+Math.abs(b-z)<14)?1:0;
-    for(let n=0;n<110;n++){ const u=r3()*TAU, v=Math.acos(2*r3()-1), rr=0.62+0.38*Math.cbrt(r3());
-      const px=x+Math.sin(v)*Math.cos(u)*rx*rr, py=cy+Math.cos(v)*ry*rr, pz=z+Math.sin(v)*Math.sin(u)*rx*rr; P.push(px,py,pz);
-      const hf=(py-(cy-ry))/(2*ry), lit=0.25+0.75*hf, j=0.75+r3()*0.5, warm=nearLamp*(1-hf)*0.12;
-      C.push((0.035+0.03*k)*lit*j+warm*0.6,(0.07+0.03*k)*lit*j+warm*0.4,0.03*lit*j+warm*0.12); } });
-  const fg=new THREE.BufferGeometry(); fg.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); fg.setAttribute('color',new THREE.Float32BufferAttribute(C,3));
-  g.add(ti,new THREE.Points(fg,new THREE.PointsMaterial({map:leafTex, vertexColors:true, size:1.45, sizeAttenuation:true, alphaTest:0.5})));
+  const r3=mulberry32(77), m4=new THREE.Matrix4(), q=new THREE.Quaternion(), up=new THREE.Vector3(0,1,0), dir=new THREE.Vector3(), v=new THREE.Vector3();
+  const tg=new THREE.CylinderGeometry(0.62,1,1,9,1,true); tg.translate(0,0.5,0);                 // tapered, open-ended: radius set per instance
+  const wood=[];                                                                                // [x,y,z, dx,dy,dz, radius]
+  const cards=[];                                                                               // [x,y,z, s,s,s, rx,ry,rz, nx,ny,nz, r,g,b]
+  const tints=[[0.95,1.0,0.9],[1.0,1.05,0.85],[0.85,0.95,0.9],[1.08,1.02,0.78],[0.9,1.0,1.0]];
+  for(const [x,z,h] of list){
+    const rx=h*0.36, ry=h*0.4, cy=h*0.68, tr=0.13+h*0.012, fork=h*(0.34+r3()*0.1), tint=tints[(r3()*tints.length)|0];
+    wood.push([x,0,z, 0,fork+0.3,0, tr]);
+    const nb=3+((r3()*2)|0);
+    for(let b=0;b<nb;b++){ const a=b/nb*TAU+r3()*0.8, reach=rx*(0.45+r3()*0.35), top=cy+ry*(0.1+r3()*0.35);
+      const bx=x+Math.cos(a)*0.15, bz=z+Math.sin(a)*0.15; wood.push([bx,fork,bz, Math.cos(a)*reach,top-fork,Math.sin(a)*reach, tr*0.62]);
+      const ex=bx+Math.cos(a)*reach, ez=bz+Math.sin(a)*reach; for(let s=0;s<2;s++){ const a2=a+(s?0.7:-0.7)+(r3()-0.5)*0.4; wood.push([ex,top,ez, Math.cos(a2)*rx*0.35,ry*0.3,Math.sin(a2)*rx*0.35, tr*0.3]); } }
+    const n=Math.round(64+h*4);
+    for(let k=0;k<n;k++){ const u=r3()*TAU, w=Math.acos(2*r3()-1), rr=0.45+0.55*Math.cbrt(r3());
+      const ox=Math.sin(w)*Math.cos(u)*rx*rr, oy=Math.cos(w)*ry*rr*(Math.cos(w)<0?0.55:0.9), oz=Math.sin(w)*Math.sin(u)*rx*rr;
+      v.set(ox,oy+ry*0.35,oz).normalize(); const depth=0.5+0.5*rr, j=0.82+r3()*0.3, sun=0.85+0.15*(oy/ry);
+      const s=(1.05+r3()*0.7)*(h/7.5);
+      cards.push([x+ox,cy+oy,z+oz, s,s,s, (r3()-0.5)*1.4,r3()*TAU,(r3()-0.5)*1.4, v.x,v.y,v.z, tint[0]*depth*j*sun,tint[1]*depth*j*sun,tint[2]*depth*j]); } }
+  // wood: one instanced mesh, each cylinder aimed along its branch
+  const wi=new THREE.InstancedMesh(tg,M.trunk,wood.length);
+  wood.forEach(([x,y,z,dx,dy,dz,rad],i)=>{ dir.set(dx,dy,dz); const L=dir.length(); q.setFromUnitVectors(up,dir.normalize()); m4.compose(v.set(x,y,z),q,new THREE.Vector3(rad,L,rad)); wi.setMatrixAt(i,m4); });
+  wi.castShadow=false; wi.receiveShadow=true; g.add(wi); KITMESH.push(wi);
+  // leaves: alpha-tested clusters with canopy-shaped normals, chunked for culling
+  const leafM=withTime(std({map:leafClusterTex(), alphaTest:0.42, side:THREE.DoubleSide, roughness:0.72, envMapIntensity:0.45}), sh=>{
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nattribute vec3 aN; uniform float uTime;')
+      .replace('#include <defaultnormal_vertex>','#include <defaultnormal_vertex>\n  transformedNormal=normalize(normalMatrix*aN);')
+      .replace('#include <project_vertex>',`vec4 mvPosition=vec4(transformed,1.0);
+        #ifdef USE_INSTANCING
+          mvPosition=instanceMatrix*mvPosition;
+        #endif
+        float ph=dot(mvPosition.xz,vec2(0.21,0.17)); float gust=0.5+0.5*sin(uTime*0.35+ph*0.05);
+        mvPosition.xyz+=vec3(sin(uTime*1.7+ph),sin(uTime*2.3+ph*1.7)*0.4,cos(uTime*1.3+ph*1.3))*0.045*gust;
+        mvPosition=modelViewMatrix*mvPosition; gl_Position=projectionMatrix*mvPosition;`);
+    sh.fragmentShader=sh.fragmentShader.replace('#include <normal_fragment_begin>','float faceDirection=gl_FrontFacing?1.0:-1.0;\n  vec3 normal=normalize(vNormal);\n  vec3 geometryNormal=normal;')
+      .replace('#include <emissivemap_fragment>','#include <emissivemap_fragment>\n  totalEmissiveRadiance+=diffuseColor.rgb*0.035;');   // a little light through the leaves
+  });
+  const cg=new THREE.PlaneGeometry(1,1), qq=new THREE.Quaternion(), e=new THREE.Euler(), pv=new THREE.Vector3(), sv=new THREE.Vector3(), col=new THREE.Color();
+  const flat=cards.flat();
+  const compose=(mm,a,o)=>mm.compose(pv.set(a[o],a[o+1],a[o+2]),qq.setFromEuler(e.set(a[o+6],a[o+7],a[o+8])),sv.set(a[o+3],a[o+4],a[o+5]));
+  for(const im of chunkedInstanced(cg,leafM,flat,15,compose,(im,lst)=>{ const an=new Float32Array(lst.length*3); lst.forEach((o,i)=>{ an.set([flat[o+9],flat[o+10],flat[o+11]],i*3); im.setColorAt(i,col.setRGB(flat[o+12],flat[o+13],flat[o+14])); });
+      im.geometry.setAttribute('aN',new THREE.InstancedBufferAttribute(an,3)); })){ im.castShadow=false; im.receiveShadow=true; im.userData.noCast=true; KITMESH.push(im); }
 }
 function finishSigns(){
   const g=Z.district;
@@ -3393,8 +3470,8 @@ resize();
 const TODS={
   dawn: {n:'清晨',e:'Dawn', t:6*60+12, day:1, sun:[0.84,0.16,0.52],  sunC:[1,0.68,0.44], sunI:2.1, sky:[0.42,0.47,0.6],  gnd:[0.27,0.23,0.2],  hemiI:0.8,  fog:[0.5,0.5,0.56],   fogD:0.0011,
          zen:[0.13,0.21,0.42], mid:[0.42,0.44,0.56], hor:[1.02,0.74,0.58], glow:[1.5,0.78,0.45], stars:0.08, lamps:0.3,  win:0.45, refA:[0.2,0.19,0.2],   refB:[0.44,0.5,0.64],  amb:[0.07,0.075,0.085], exE:0.62, exI:0.95, city:0.2},
-  noon: {n:'正午',e:'Noon', t:12*60+30, day:1, sun:[0.3,0.88,0.37],  sunC:[1,0.96,0.9],   sunI:3.4, sky:[0.55,0.68,0.95], gnd:[0.36,0.33,0.29], hemiI:1.2,  fog:[0.68,0.74,0.82], fogD:0.0008,
-         zen:[0.16,0.33,0.75], mid:[0.38,0.56,0.9],  hor:[0.8,0.86,0.94],  glow:[1.0,0.95,0.85], stars:0,    lamps:0,    win:0.12, refA:[0.28,0.29,0.3],  refB:[0.55,0.68,0.92], amb:[0.12,0.125,0.13],   exE:0.5,  exI:0.85, city:0.03},
+  noon: {n:'正午',e:'Noon', t:12*60+30, day:1, sun:[0.3,0.88,0.37],  sunC:[1,0.96,0.9],   sunI:3.4, sky:[0.55,0.68,0.95], gnd:[0.36,0.33,0.29], hemiI:1.2,  fog:[0.64,0.72,0.84], fogD:0.00075,
+         zen:[0.1,0.26,0.74],  mid:[0.3,0.5,0.9],    hor:[0.76,0.84,0.95],  glow:[1.0,0.95,0.85], stars:0,    lamps:0,    win:0.12, refA:[0.28,0.29,0.3],  refB:[0.55,0.68,0.92], amb:[0.12,0.125,0.13],   exE:0.5,  exI:0.85, city:0.03},
   dusk: {n:'黄昏',e:'Dusk', t:18*60+42, day:1, sun:[-0.88,0.09,0.46], sunC:[1,0.48,0.24],  sunI:1.8, sky:[0.36,0.33,0.52], gnd:[0.25,0.18,0.15], hemiI:0.62, fog:[0.44,0.33,0.36], fogD:0.001,
          zen:[0.06,0.08,0.24], mid:[0.32,0.24,0.38], hor:[1.25,0.55,0.3],  glow:[1.6,0.6,0.28],  stars:0.2,  lamps:0.85, win:0.8,  refA:[0.2,0.13,0.12],  refB:[0.3,0.25,0.4],   amb:[0.045,0.04,0.05],  exE:0.85, exI:0.95, city:0.65},
   night:{n:'夜晚',e:'Night',t:23*60+8, day:0, sun:[MOON.x,MOON.y,MOON.z], sunC:[0.62,0.72,1.0], sunI:0.3, sky:[0.22,0.28,0.48], gnd:[0.28,0.2,0.14], hemiI:0.3, fog:[0.03,0.03,0.05], fogD:0.00052,
